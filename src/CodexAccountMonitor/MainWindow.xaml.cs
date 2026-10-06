@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -31,10 +32,12 @@ public partial class MainWindow : Window
     private readonly CancellationTokenSource lifetime = new();
     private readonly DispatcherTimer timer = new();
     private readonly Forms.NotifyIcon? tray;
+    private readonly TaskbarWidget? miniWidget;
     private bool refreshing;
     private bool exiting;
     private readonly bool demo;
     private readonly string? screenshotPath;
+    public bool StartsCollapsed => screenshotPath is null && settings.ShowMiniWidget;
 
     public MainWindow(bool demo, string? screenshotPath, string? customSettings)
     {
@@ -60,8 +63,25 @@ public partial class MainWindow : Window
             menu.Items.Add("열기 / 숨기기", null, (_, _) => Dispatcher.Invoke(ToggleWindow));
             menu.Items.Add("새로고침", null, (_, _) => Dispatcher.Invoke(async () => await RefreshAsync()));
             menu.Items.Add("설정", null, (_, _) => Dispatcher.Invoke(() => SettingsClick(this, new RoutedEventArgs())));
+            var miniMenu = new Forms.ToolStripMenuItem("왼쪽 미니 위젯 표시") { Checked = settings.ShowMiniWidget, CheckOnClick = true };
+            miniMenu.Click += (_, _) => Dispatcher.Invoke(() =>
+            {
+                settings.ShowMiniWidget = miniMenu.Checked;
+                if (!demo) store.Save(settings);
+                miniWidget?.Configure(settings.ShowMiniWidget, settings.DockMiniWidget);
+            });
+            menu.Items.Add(miniMenu);
+            menu.Opening += (_, _) => miniMenu.Checked = settings.ShowMiniWidget;
             menu.Items.Add("종료", null, (_, _) => Dispatcher.Invoke(async () => await ExitAsync()));
             tray.ContextMenuStrip = menu;
+            try
+            {
+                miniWidget = new TaskbarWidget();
+                miniWidget.Click += ToggleWindow;
+                miniWidget.RightClick += () => { miniMenu.Checked = settings.ShowMiniWidget; menu.Show(Forms.Cursor.Position); };
+                miniWidget.Configure(settings.ShowMiniWidget, settings.DockMiniWidget);
+            }
+            catch (Win32Exception) { /* The notification icon remains available if native widget creation fails. */ }
         }
         timer.Interval = TimeSpan.FromSeconds(settings.RefreshSeconds);
         timer.Tick += async (_, _) => await RefreshAsync();
@@ -128,7 +148,7 @@ public partial class MainWindow : Window
         finally
         {
             refreshing = false;
-            if (!exiting) { RenderCards(); FooterText.Text = demo ? "DEMO · 예시 데이터" : $"{settings.RefreshSeconds}초마다 갱신 · {DateTime.Now:HH:mm:ss}"; }
+            if (!exiting) { RenderCards(); FooterText.Text = demo ? "DEMO · 예시 데이터" : $"{settings.RefreshSeconds}초 갱신 · {miniWidget?.Status ?? "알림 영역"}"; }
         }
     }
 
@@ -173,6 +193,12 @@ public partial class MainWindow : Window
                 ? $"{source.Name}: {data.Windows.Min(w => w.RemainingPercent):0}%" : $"{source.Name}: —"));
             tray.Text = ("Codex · " + tooltip)[..Math.Min(63, 8 + tooltip.Length)];
         }
+        miniWidget?.Update(sources.Select(source =>
+        {
+            snapshots.TryGetValue(source.Id, out var data);
+            return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
+                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false);
+        }).ToArray());
     }
 
     private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate)
@@ -267,12 +293,14 @@ public partial class MainWindow : Window
     private void HideClick(object sender, RoutedEventArgs e) => Hide();
     private void SettingsClick(object sender, RoutedEventArgs e)
     {
+        if (!IsVisible) ShowDetails();
         var editor = new PreferencesWindow(settings) { Owner = this };
         if (editor.ShowDialog() != true || demo) return;
         Topmost = settings.AlwaysOnTop;
         timer.Interval = TimeSpan.FromSeconds(settings.RefreshSeconds);
         store.Save(settings);
         ApplyStartup();
+        miniWidget?.Configure(settings.ShowMiniWidget, settings.DockMiniWidget);
     }
     private void ApplyStartup()
     {
@@ -280,15 +308,63 @@ public partial class MainWindow : Window
         if (settings.StartWithWindows && Environment.ProcessPath is { } path) key.SetValue("CodexAccountMonitor", "\"" + path + "\" --minimized");
         else key.DeleteValue("CodexAccountMonitor", throwOnMissingValue: false);
     }
-    private void ToggleWindow() { if (IsVisible) Hide(); else { Show(); WindowState = WindowState.Normal; Activate(); } }
+    private void ToggleWindow() { if (IsVisible) Hide(); else ShowDetails(); }
+    internal void ShowDetails()
+    {
+        if (miniWidget is { Handle: not 0 } widget)
+        {
+            var pixelBounds = widget.ScreenBounds;
+            var dpi = GetDpiForWidget(widget.Handle) / 96d;
+            var area = SystemParameters.WorkArea;
+            Left = Math.Clamp(pixelBounds.Left / dpi, area.Left, Math.Max(area.Left, area.Right - Width));
+            Top = Math.Max(area.Top + 4, pixelBounds.Top / dpi - Height - 6);
+        }
+        Show(); WindowState = WindowState.Normal; Activate();
+    }
+    [DllImport("user32.dll", EntryPoint = "GetDpiForWindow")] private static extern uint GetDpiForWidget(nint window);
     private void OnClosing(object? sender, CancelEventArgs e) { if (exiting) return; e.Cancel = true; Hide(); }
-    private async Task ExitAsync()
+    internal async Task ExitAsync(int exitCode = 0)
     {
         if (exiting) return;
         exiting = true; timer.Stop(); lifetime.Cancel();
         while (refreshing) await Task.Delay(50);
         foreach (var connection in connections.Values) await connection.DisposeAsync();
-        tray?.Dispose(); lifetime.Dispose(); Close(); Application.Current.Shutdown();
+        miniWidget?.Dispose(); tray?.Dispose(); lifetime.Dispose(); Close(); Application.Current.Shutdown(exitCode);
+    }
+    internal async Task<bool> RunWidgetCheckAsync(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var checks = new Dictionary<string, bool>();
+        if (miniWidget is null) { File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), "{\"nativeWidgetAvailable\":false}"); return false; }
+        while (refreshing) await Task.Delay(50);
+        var widget = miniWidget;
+        Hide();
+        widget.Configure(true, true);
+        await Task.Delay(700);
+        var docked = widget.Inspect();
+        checks["nativeWidgetVisible"] = widget.CaptureVisible(System.IO.Path.Combine(directory, "mini-taskbar.png"));
+        checks["nativeWidgetReceivesPointer"] = widget.HitTestCenter();
+        widget.SendTestClick(rightButton: true); await Task.Delay(300);
+        checks["miniRightClickOpensMenu"] = tray?.ContextMenuStrip?.Visible == true;
+        tray?.ContextMenuStrip?.Close();
+        widget.SendTestClick(); await Task.Delay(500);
+        checks["miniClickOpensDetails"] = IsVisible;
+        UpdateLayout(); Capture(System.IO.Path.Combine(directory, "details.png"));
+        HideClick(this, new RoutedEventArgs()); await Task.Delay(200);
+        checks["collapsePreservesMiniWidget"] = !IsVisible && widget.Handle != 0;
+        widget.SendTestClick(); await Task.Delay(300);
+        widget.SendTestClick(); await Task.Delay(300);
+        checks["miniClickTogglesDetails"] = !IsVisible;
+        widget.Configure(true, false); await Task.Delay(300);
+        checks["overlayModeVisible"] = !widget.IsDocked && widget.CaptureVisible(System.IO.Path.Combine(directory, "mini-overlay.png"));
+        widget.Configure(false, true);
+        checks["miniCanBeDisabled"] = widget.Handle == 0;
+        widget.Configure(true, true); await Task.Delay(300);
+        checks["miniCanBeRestored"] = widget.Handle != 0;
+        ShowDetails(); Close(); await Task.Delay(200);
+        checks["closeCollapsesWithoutExiting"] = !IsVisible && widget.Handle != 0;
+        File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), JsonSerializer.Serialize(new { checks, docked }, new JsonSerializerOptions { WriteIndented = true }));
+        return checks.Values.All(x => x);
     }
     private void Capture(string path)
     {
@@ -297,6 +373,12 @@ public partial class MainWindow : Window
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         using var stream = File.Create(path); encoder.Save(stream);
+        TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), settings.Sources.Where(x => x.Enabled).Select(source =>
+        {
+            snapshots.TryGetValue(source.Id, out var data);
+            return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
+                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false);
+        }).ToArray());
     }
     private static Drawing.Icon CreateIcon()
     {

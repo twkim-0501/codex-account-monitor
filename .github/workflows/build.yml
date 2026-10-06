@@ -29,13 +29,14 @@ jobs:
         run: |
           $process = Start-Process -FilePath .\dist\CodexAccountMonitor.exe -ArgumentList '--demo --screenshot "${{ github.workspace }}\dist\preview.png"' -WindowStyle Hidden -PassThru
           if (!$process.WaitForExit(30000)) { $process.Kill(); throw 'Widget screenshot timed out' }
-          if ($process.ExitCode -ne 0 -or !(Test-Path .\dist\preview.png)) { throw 'Widget screenshot failed' }
+          if ($process.ExitCode -ne 0 -or !(Test-Path .\dist\preview.png) -or !(Test-Path .\dist\mini-preview.png)) { throw 'Widget screenshot failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: codex-account-monitor-win-x64
           path: |
             dist/CodexAccountMonitor.exe
             dist/preview.png
+            dist/mini-preview.png
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
@@ -46,4 +47,4 @@ jobs:
           Copy-Item LICENSE dist\LICENSE
           Get-FileHash dist\CodexAccountMonitor.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  CodexAccountMonitor.exe" } | Set-Content dist\SHA256SUMS.txt
           Compress-Archive -Path dist\CodexAccountMonitor.exe,dist\README.md,dist\LICENSE,dist\SHA256SUMS.txt -DestinationPath dist\CodexAccountMonitor-win-x64.zip
-          gh release create "$env:GITHUB_REF_NAME" dist\CodexAccountMonitor.exe dist\CodexAccountMonitor-win-x64.zip dist\SHA256SUMS.txt --title "Codex Account Monitor $env:GITHUB_REF_NAME" --notes "Native Windows multi-account Codex usage widget. Local + SSH sources, quota/reset times, daily/lifetime token activity, isolated account login, tray controls, and low-quota alerts. Includes .NET runtime; Codex app/CLI is required. No code signing certificate is included."
+          gh release create "$env:GITHUB_REF_NAME" dist\CodexAccountMonitor.exe dist\CodexAccountMonitor-win-x64.zip dist\SHA256SUMS.txt --title "Codex Account Monitor $env:GITHUB_REF_NAME" --notes "Adds a compact widget inside the left side of the Windows 11 taskbar. Click to open account details; collapse or close to return to the mini widget. Includes an above-taskbar mode and the notification icon. Existing account connections are preserved. Codex Pulse concept/UI credit: https://github.com/pjhun0412/codex-pulse . Adapted and rewritten using OpenAI Codex. Includes .NET runtime; Codex app/CLI required. No code signing certificate is included."

@@ -8,6 +8,8 @@ public sealed class MonitorSettings
     public bool AlwaysOnTop { get; set; } = true;
     public bool AlertsEnabled { get; set; } = true;
     public bool StartWithWindows { get; set; }
+    public bool ShowMiniWidget { get; set; } = true;
+    public bool DockMiniWidget { get; set; } = true;
     public List<AccountSource> Sources { get; set; } = [];
 }
 

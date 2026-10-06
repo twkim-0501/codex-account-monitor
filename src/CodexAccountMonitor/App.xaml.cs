@@ -25,14 +25,28 @@ public partial class App : Application
         if (screenshot is not null) System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         var settingsIndex = Array.IndexOf(e.Args, "--settings");
         var customSettings = settingsIndex >= 0 && settingsIndex + 1 < e.Args.Length ? Path.GetFullPath(e.Args[settingsIndex + 1]) : null;
-        if (screenshot is null)
+        var checkIndex = Array.IndexOf(e.Args, "--widget-check");
+        var checkDirectory = checkIndex >= 0 && checkIndex + 1 < e.Args.Length ? Path.GetFullPath(e.Args[checkIndex + 1]) : null;
+        if (screenshot is null && !(demo && checkDirectory is not null))
         {
             instance = new Mutex(true, "Local\\CodexAccountMonitor", out var created);
             if (!created) { MessageBox.Show("이미 실행 중입니다. 알림 영역의 아이콘을 클릭하세요.", "Codex Account Monitor"); Shutdown(); return; }
         }
         var window = new MainWindow(demo, screenshot, customSettings);
         MainWindow = window;
-        if (!e.Args.Contains("--minimized") || screenshot is not null) window.Show();
+        if (screenshot is not null) window.Show();
+        else if (checkDirectory is not null) RunWidgetCheck(window, checkDirectory);
+        else if (!e.Args.Contains("--minimized") && (!window.StartsCollapsed || e.Args.Contains("--open"))) window.ShowDetails();
+    }
+    private async void RunWidgetCheck(MainWindow window, string directory)
+    {
+        try { await window.ExitAsync(await window.RunWidgetCheckAsync(directory) ? 0 : 1); }
+        catch (Exception error)
+        {
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "widget-error.txt"), error.ToString());
+            await window.ExitAsync(1);
+        }
     }
     protected override void OnExit(ExitEventArgs e) { instance?.Dispose(); base.OnExit(e); }
 }

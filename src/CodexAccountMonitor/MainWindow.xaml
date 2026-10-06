@@ -2,7 +2,7 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
  Title="Codex Account Monitor" Width="422" Height="770" MinWidth="370" MinHeight="420" WindowStyle="None"
  ResizeMode="CanResize" Background="{StaticResource Canvas}" Foreground="{StaticResource Text}" FontFamily="Segoe UI, Malgun Gothic"
- WindowStartupLocation="Manual" Closing="OnClosing">
+ WindowStartupLocation="Manual" ShowInTaskbar="False" Closing="OnClosing">
  <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="42" ResizeBorderThickness="5" CornerRadius="12" GlassFrameThickness="0"/></shell:WindowChrome.WindowChrome>
  <Border BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,14,18,14">
   <Grid>
@@ -12,7 +12,7 @@
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
      <Button Content="↻" FontSize="17" ToolTip="모든 계정 새로고침" Click="RefreshClick" Margin="0,0,6,0" Padding="10,4"/>
      <Button Content="⚙" FontSize="16" ToolTip="설정" Click="SettingsClick" Margin="0,0,6,0" Padding="10,4"/>
-     <Button Content="−" FontSize="18" ToolTip="알림 영역으로 숨기기" Click="HideClick" Padding="10,4"/>
+     <Button Content="−" FontSize="18" ToolTip="접기 · 미니 위젯으로 돌아가기" Click="HideClick" Padding="10,4"/>
     </StackPanel>
    </Grid>
    <Grid Grid.Row="1" Margin="0,0,0,14">

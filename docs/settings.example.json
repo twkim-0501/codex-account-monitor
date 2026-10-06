@@ -3,6 +3,8 @@
   "alwaysOnTop": true,
   "alertsEnabled": true,
   "startWithWindows": false,
+  "showMiniWidget": true,
+  "dockMiniWidget": true,
   "sources": [
     { "id": "local", "name": "Personal", "kind": "local", "enabled": true },
     { "id": "remote", "name": "Research", "kind": "ssh", "sshHost": "research-server", "enabled": true }

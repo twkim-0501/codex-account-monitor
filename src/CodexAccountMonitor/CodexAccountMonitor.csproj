@@ -7,6 +7,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>CodexAccountMonitor</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF owns startup/DPI. WinForms is used only for NotifyIcon and its menu. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
