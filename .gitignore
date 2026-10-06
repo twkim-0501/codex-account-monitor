@@ -6,6 +6,8 @@ dist/
 *.log
 auth.json
 settings.local.json
+settings.json
+profiles/
 cache.json
 .env*
 !*.example.json

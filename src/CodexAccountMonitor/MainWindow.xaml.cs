@@ -37,7 +37,8 @@ public partial class MainWindow : Window
     private bool exiting;
     private readonly bool demo;
     private readonly string? screenshotPath;
-    public bool StartsCollapsed => screenshotPath is null && settings.ShowMiniWidget;
+    private readonly bool firstRun;
+    public bool StartsCollapsed => screenshotPath is null && settings.ShowMiniWidget && !firstRun;
 
     public MainWindow(bool demo, string? screenshotPath, string? customSettings, int demoAccounts = 3)
     {
@@ -45,8 +46,10 @@ public partial class MainWindow : Window
         this.demo = demo;
         this.screenshotPath = screenshotPath;
         store = new(customSettings);
+        firstRun = !File.Exists(store.SettingsPath) && !demo;
         try { settings = store.Load(); }
         catch (InvalidDataException error) { MessageBox.Show(error.Message, Title); settings = new(); }
+        if (firstRun && screenshotPath is null) store.Save(settings);
         Topmost = settings.AlwaysOnTop;
         var area = SystemParameters.WorkArea;
         Height = Math.Min(Height, area.Height - 24);
@@ -214,6 +217,7 @@ public partial class MainWindow : Window
     private async void EditSource(AccountSource? source)
     {
         if (refreshing || demo) { MessageBox.Show(demo ? "데모 모드에서는 연결 설정을 저장하지 않습니다." : "조회가 완료된 뒤 연결을 편집할 수 있습니다.", Title); return; }
+        if (source is null && settings.Sources.Count >= 50) { MessageBox.Show("최대 50개 연결을 등록할 수 있습니다. 기존 연결을 정리한 뒤 추가하세요.", Title); return; }
         var editor = new SourceWindow(source, store.DirectoryPath) { Owner = this };
         if (editor.ShowDialog() != true) return;
         if (source is not null)
@@ -226,6 +230,7 @@ public partial class MainWindow : Window
     }
     private async void RefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync();
     private void HideClick(object sender, RoutedEventArgs e) => Hide();
+    private void HelpClick(object sender, RoutedEventArgs e) => new HelpWindow { Owner = this }.ShowDialog();
     private void SettingsClick(object sender, RoutedEventArgs e)
     {
         if (!IsVisible) ShowDetails();
@@ -314,6 +319,17 @@ public partial class MainWindow : Window
         checks["miniCanBeRestored"] = widget.Handle != 0;
         ShowDetails(); Close(); await Task.Delay(200);
         checks["closeCollapsesWithoutExiting"] = !IsVisible && widget.Handle != 0;
+        if (!demo && settings.Sources.LastOrDefault(x => x.Enabled && x.Kind == "ssh") is { } source)
+        {
+            var editor = new SourceWindow(source, store.DirectoryPath);
+            checks["connectionCheckReadsSelectedAccount"] = await editor.CheckConnectionAsync();
+            checks["connectionCheckShowsAccountIdentity"] = snapshots.TryGetValue(source.Id, out var account) && editor.StatusText.Contains(MetricFormatting.MaskEmail(account.Email));
+            editor.SaveSnapshot(System.IO.Path.Combine(directory, "connection-checked.png"));
+            editor.Close();
+            var invalid = new SourceWindow(new AccountSource { Kind = "ssh", SshHost = null }, store.DirectoryPath);
+            checks["emptySshTargetShowsGuidance"] = !await invalid.CheckConnectionAsync() && invalid.StatusText.Contains("SSH");
+            invalid.Close();
+        }
         File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), JsonSerializer.Serialize(new { checks, docked }, new JsonSerializerOptions { WriteIndented = true }));
         return checks.Values.All(x => x);
     }
@@ -332,6 +348,7 @@ public partial class MainWindow : Window
         }).ToArray();
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), miniAccounts);
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview-dark.png"), miniAccounts, lightTheme: false);
+        if (demo) SourceWindow.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "add-ssh-preview.png"), store.DirectoryPath);
     }
     private static Drawing.Icon CreateIcon()
     {

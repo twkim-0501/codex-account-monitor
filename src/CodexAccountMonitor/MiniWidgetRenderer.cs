@@ -21,7 +21,7 @@ public static class MiniWidgetRenderer
         var enumerator = StringInfo.GetTextElementEnumerator(name.Trim());
         while (enumerator.MoveNext()) elements.Add(enumerator.GetTextElement());
         if (elements.Count <= 6) return string.Concat(elements);
-        // Keep trailing account numbers: nmailkaist2 becomes nmail2, not an ambiguous prefix.
+        // Keep trailing account numbers: research02 becomes rese02, not an ambiguous prefix.
         var tail = new string(name.Reverse().TakeWhile(char.IsDigit).Take(2).Reverse().ToArray());
         return tail.Length > 0 ? string.Concat(elements.Take(6 - tail.Length)) + tail : string.Concat(elements.Take(5)) + "…";
     }

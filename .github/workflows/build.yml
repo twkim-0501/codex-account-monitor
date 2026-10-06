@@ -29,7 +29,7 @@ jobs:
         run: |
           $process = Start-Process -FilePath .\dist\CodexAccountMonitor.exe -ArgumentList '--demo --screenshot "${{ github.workspace }}\dist\preview.png"' -WindowStyle Hidden -PassThru
           if (!$process.WaitForExit(30000)) { $process.Kill(); throw 'Widget screenshot timed out' }
-          if ($process.ExitCode -ne 0 -or !(Test-Path .\dist\preview.png) -or !(Test-Path .\dist\mini-preview.png)) { throw 'Widget screenshot failed' }
+          if ($process.ExitCode -ne 0 -or !(Test-Path .\dist\preview.png) -or !(Test-Path .\dist\mini-preview.png) -or !(Test-Path .\dist\add-ssh-preview.png)) { throw 'Widget screenshot failed' }
           $overflow = Start-Process -FilePath .\dist\CodexAccountMonitor.exe -ArgumentList '--demo --demo-accounts 8 --screenshot "${{ github.workspace }}\dist\overflow\preview.png"' -WindowStyle Hidden -PassThru
           if (!$overflow.WaitForExit(30000)) { $overflow.Kill(); throw 'Overflow preview timed out' }
           if ($overflow.ExitCode -ne 0 -or !(Test-Path .\dist\overflow\mini-preview.png)) { throw 'Overflow preview failed' }
@@ -41,6 +41,7 @@ jobs:
             dist/preview.png
             dist/mini-preview.png
             dist/mini-preview-dark.png
+            dist/add-ssh-preview.png
             dist/overflow/*.png
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -50,7 +51,17 @@ jobs:
         run: |
           Copy-Item README.md dist\README.md
           Copy-Item LICENSE dist\LICENSE
+          Copy-Item CHANGELOG.md dist\CHANGELOG.md
           Copy-Item docs dist\docs -Recurse
           Get-FileHash dist\CodexAccountMonitor.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  CodexAccountMonitor.exe" } | Set-Content dist\SHA256SUMS.txt
-          Compress-Archive -Path dist\CodexAccountMonitor.exe,dist\README.md,dist\LICENSE,dist\SHA256SUMS.txt,dist\docs -DestinationPath dist\CodexAccountMonitor-win-x64.zip
-          gh release create "$env:GITHUB_REF_NAME" dist\CodexAccountMonitor.exe dist\CodexAccountMonitor-win-x64.zip dist\SHA256SUMS.txt --title "Codex Account Monitor $env:GITHUB_REF_NAME" --notes "Minimal redesign: translucent single-row taskbar chips for up to three accounts, a bounded +N overflow button, light expandable account rows, and optional short account names. Preserves existing connections. Codex Pulse concept/workflow reference: https://github.com/pjhun0412/codex-pulse . Adapted and rewritten using OpenAI Codex, with a newly designed v1.2 interface. Includes .NET runtime; Codex app/CLI required. No code signing certificate is included."
+          Compress-Archive -Path dist\CodexAccountMonitor.exe,dist\README.md,dist\CHANGELOG.md,dist\LICENSE,dist\SHA256SUMS.txt,dist\docs -DestinationPath dist\CodexAccountMonitor-win-x64.zip
+          @'
+          처음 쓰는 사람을 위한 계정 연결 안내를 다듬었습니다. 연결 확인으로 실제 이메일·플랜·한도를 확인한 뒤 모니터에 추가할 수 있습니다. VSCode/Codex 앱의 SSH 연결은 모니터에 자동 등록되지 않는다는 점을 앱과 README에 명시했습니다.
+
+          첫 실행 상세 창, 사용 방법 버튼, 고급 설정 접기, 설치·SSH·Free 계정·업데이트 안내와 English guide를 추가했습니다. 기존 연결 설정과 미니 위젯 디자인은 유지됩니다.
+
+          Download CodexAccountMonitor.exe from Assets and run it on Windows 10/11 x64. The .NET runtime is included; Codex app/CLI and an existing login are required. Quit the running monitor before replacing its executable. The ZIP also includes documentation. No code-signing certificate is included.
+
+          Original concept/workflow: https://github.com/pjhun0412/codex-pulse . Adapted and rewritten in C#/WPF using OpenAI Codex. Full credits are in README.
+          '@ | Set-Content dist\release-notes.md -Encoding utf8
+          gh release create "$env:GITHUB_REF_NAME" dist\CodexAccountMonitor.exe dist\CodexAccountMonitor-win-x64.zip dist\SHA256SUMS.txt --title "Codex Account Monitor $env:GITHUB_REF_NAME" --notes-file dist\release-notes.md

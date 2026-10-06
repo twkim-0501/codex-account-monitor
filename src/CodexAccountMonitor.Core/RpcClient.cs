@@ -32,7 +32,7 @@ public sealed class RpcClient : IAsyncDisposable
 
     public async Task InitializeAsync(CancellationToken token)
     {
-        await CallAsync("initialize", new { clientInfo = new { name = "codex_account_monitor", title = "Codex Account Monitor", version = "1.0.0" },
+        await CallAsync("initialize", new { clientInfo = new { name = "codex_account_monitor", title = "Codex Account Monitor", version = typeof(RpcClient).Assembly.GetName().Version?.ToString(3) ?? "1.0.0" },
             capabilities = new { experimentalApi = true } }, token);
         await SendAsync(new { method = "initialized" }, token);
     }

@@ -10,6 +10,7 @@
    <Grid Margin="4,0,0,18">
     <TextBlock Text="계정" FontSize="23" FontWeight="SemiBold" VerticalAlignment="Center"/>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+     <Button Content="?" FontSize="15" ToolTip="처음 사용하시나요? · 사용 방법" Click="HelpClick" Width="30" Height="30" Padding="0" Margin="0,0,4,0"/>
      <Button Content="↻" FontSize="17" ToolTip="모든 계정 새로고침" Click="RefreshClick" Width="30" Height="30" Padding="0"/>
      <Button Content="⚙" FontSize="15" ToolTip="설정" Click="SettingsClick" Width="30" Height="30" Padding="0" Margin="4,0"/>
      <Button Content="−" FontSize="18" ToolTip="접기 · 미니 위젯으로 돌아가기" Click="HideClick" Width="30" Height="30" Padding="0"/>
