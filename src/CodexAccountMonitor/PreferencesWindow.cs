@@ -11,8 +11,8 @@ public sealed class PreferencesWindow : Window
     public PreferencesWindow(MonitorSettings settings)
     {
         Title = "설정"; Width = 400; Height = 470; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = (Brush)new BrushConverter().ConvertFromString("#0C1016")!;
-        Foreground = (Brush)new BrushConverter().ConvertFromString("#EDF4FA")!;
+        Background = (Brush)new BrushConverter().ConvertFromString("#FAFAFC")!;
+        Foreground = (Brush)new BrushConverter().ConvertFromString("#30323B")!;
         var stack = new StackPanel { Margin = new Thickness(24) }; Content = stack;
         stack.Children.Add(new TextBlock { Text = "위젯 설정", FontSize = 22, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 15) });
         stack.Children.Add(new TextBlock { Text = "갱신 간격 · 30~3600초", FontSize = 11, Margin = new Thickness(0, 0, 0, 5) });
@@ -21,7 +21,7 @@ public sealed class PreferencesWindow : Window
         var alerts = new CheckBox { Content = "잔여 한도 10% 이하 알림", IsChecked = settings.AlertsEnabled }; stack.Children.Add(alerts);
         var mini = new CheckBox { Content = "왼쪽 아래 미니 위젯 표시", IsChecked = settings.ShowMiniWidget }; stack.Children.Add(mini);
         var dock = new CheckBox { Content = "미니 위젯을 작업표시줄 안에 붙이기", IsChecked = settings.DockMiniWidget }; stack.Children.Add(dock);
-        stack.Children.Add(new TextBlock { Text = "해제하면 작업표시줄 바로 위에 표시합니다. Windows에서 도킹할 수 없는 경우에도 바로 위에 표시합니다.", FontSize = 10, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)new BrushConverter().ConvertFromString("#93A4B8")! });
+        stack.Children.Add(new TextBlock { Text = "최대 3개를 한 줄로 표시합니다. 나머지는 +N에서 전체 목록을 엽니다. 도킹을 해제하면 작업표시줄 바로 위에 표시합니다.", FontSize = 10, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)new BrushConverter().ConvertFromString("#90919B")! });
         var startup = new CheckBox { Content = "Windows 로그인 시 접힌 상태로 시작", IsChecked = settings.StartWithWindows }; stack.Children.Add(startup);
         var save = new Button { Content = "저장", Margin = new Thickness(0, 14, 0, 0) };
         save.Click += (_, _) =>

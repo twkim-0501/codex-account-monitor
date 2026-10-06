@@ -17,6 +17,7 @@ public sealed class AccountSource
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "Local Codex";
+    public string? ShortName { get; set; }
     public string Kind { get; set; } = "local";
     public string? SshHost { get; set; }
     public string? CodexPath { get; set; }

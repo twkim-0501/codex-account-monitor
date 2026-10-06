@@ -32,7 +32,9 @@ public partial class App : Application
             instance = new Mutex(true, "Local\\CodexAccountMonitor", out var created);
             if (!created) { MessageBox.Show("이미 실행 중입니다. 알림 영역의 아이콘을 클릭하세요.", "Codex Account Monitor"); Shutdown(); return; }
         }
-        var window = new MainWindow(demo, screenshot, customSettings);
+        var demoCountIndex = Array.IndexOf(e.Args, "--demo-accounts");
+        var demoCount = demoCountIndex >= 0 && demoCountIndex + 1 < e.Args.Length && int.TryParse(e.Args[demoCountIndex + 1], out var parsedCount) ? Math.Clamp(parsedCount, 1, 12) : 3;
+        var window = new MainWindow(demo, screenshot, customSettings, demoCount);
         MainWindow = window;
         if (screenshot is not null) window.Show();
         else if (checkDirectory is not null) RunWidgetCheck(window, checkDirectory);

@@ -1,14 +1,18 @@
 # Codex Account Monitor
 
-> 기존 **[Codex Pulse](https://github.com/pjhun0412/codex-pulse)**를 참고하여 **OpenAI Codex로 다중 계정·SSH 서버 모니터링 용도에 맞게 개조·확장한 개인용 프로그램**입니다. 원작의 아이디어와 UI에 대한 크레딧은 **[pjhun0412](https://github.com/pjhun0412)**에게 있습니다. 이 저장소의 구현은 C#/WPF로 재작성했습니다. 자세한 출처와 제작 방식은 아래에 명시했습니다.
+> 기존 **[Codex Pulse](https://github.com/pjhun0412/codex-pulse)**를 참고하여 **OpenAI Codex로 다중 계정·SSH 서버 모니터링 용도에 맞게 개조·확장한 개인용 프로그램**입니다. 원작의 위젯 아이디어와 사용 방식에 대한 크레딧은 **[pjhun0412](https://github.com/pjhun0412)**에게 있습니다. 코드는 C#/WPF로 재작성했고, v1.2의 미니 위젯과 상세 목록은 새로 디자인했습니다. 자세한 출처와 제작 방식은 아래에 명시했습니다.
 
 A native Windows widget for monitoring multiple Codex accounts, including accounts signed in on remote SSH servers. Built with WPF, a Win32/GDI taskbar mini widget, and .NET 10. No Electron runtime, telemetry, cloud dashboard, API key, or inference requests.
 
-An adaptation and extension of the Codex Pulse widget concept, developed using OpenAI Codex for personal multi-account and SSH monitoring. Original concept and UI credit: **[pjhun0412/codex-pulse](https://github.com/pjhun0412/codex-pulse)**. The implementation here was rewritten in C#/WPF.
+An adaptation and extension of the Codex Pulse widget concept, developed using OpenAI Codex for personal multi-account and SSH monitoring. Original concept/workflow reference: **[pjhun0412/codex-pulse](https://github.com/pjhun0412/codex-pulse)**. The implementation was rewritten in C#/WPF; the v1.2 interface was redesigned with translucent taskbar chips and a light expandable account list.
 
 ![Widget preview with fictional accounts and example values](docs/preview.png)
 
 ![Taskbar mini widget with fictional accounts and example remaining percentages](docs/mini-preview.png)
+
+Four or more connections keep the same single row; an overflow button opens the full list. Example with eight fictional accounts:
+
+![Three visible accounts and five additional accounts](docs/mini-overflow.png)
 
 **[Download the latest Windows executable](https://github.com/twkim-0501/codex-account-monitor/releases/latest)**
 
@@ -16,17 +20,21 @@ An adaptation and extension of the Codex Pulse widget concept, developed using O
 
 1. 릴리스에서 `CodexAccountMonitor.exe`를 다운로드하고 실행합니다. Windows 10/11 x64용이며 .NET 런타임을 포함합니다. Codex 앱 또는 Codex CLI는 별도로 설치되어 있어야 합니다.
 2. 실행하면 **왼쪽 작업표시줄에 접힌 미니 위젯**이 표시됩니다. 현재 PC의 Codex 로그인 계정을 자동으로 조회합니다. 미니 위젯을 클릭하면 상세 창이 열리고, 다시 클릭하거나 상세 창의 `−`를 누르면 접힙니다. 접어도 미니 위젯은 남아 계속 갱신됩니다.
-3. 상세 창의 **+ 연결 → SSH**에서 기존 SSH 별명(예: `research-server`)을 선택하면 서버에 로그인된 Codex 계정을 함께 조회합니다. `ssh research-server`가 키 인증으로 연결되어 있어야 합니다. 비밀번호 입력이나 새 호스트 키 확인은 터미널에서 먼저 완료하세요.
-4. 새 계정은 **+ 연결 → 로컬 · 별도 계정으로 로그인**에서 이름을 입력하고 로그인합니다. 현재 Codex 계정과 다른 `CODEX_HOME`을 사용합니다. 새 프로필은 Windows 자격 증명 저장소를 사용합니다.
-5. 각 카드의 `···`로 연결을 편집하거나 제거합니다. 연결 제거는 Codex 인증 정보나 원격 파일을 삭제하지 않습니다.
+3. 상세 창의 **+ 계정 → SSH**에서 기존 SSH 별명(예: `research-server`)을 선택하면 서버에 로그인된 Codex 계정을 함께 조회합니다. `ssh research-server`가 키 인증으로 연결되어 있어야 합니다. 비밀번호 입력이나 새 호스트 키 확인은 터미널에서 먼저 완료하세요.
+4. 새 계정은 **+ 계정 → 로컬 · 별도 계정으로 로그인**에서 이름을 입력하고 로그인합니다. 현재 Codex 계정과 다른 `CODEX_HOME`을 사용합니다. 새 프로필은 Windows 자격 증명 저장소를 사용합니다.
+5. 각 계정 행의 `···`로 연결을 편집하거나 제거합니다. 연결 제거는 Codex 인증 정보나 원격 파일을 삭제하지 않습니다.
 
 상세 창은 미니 위젯 바로 위에 열리며 드래그와 크기 조절이 가능합니다. `−`와 창 닫기는 상세 창을 접습니다. 오른쪽 아래 알림 영역 아이콘으로도 상세 창을 열고 접을 수 있습니다. 미니 위젯이나 알림 영역 아이콘을 우클릭하면 메뉴가 열리며, 완전히 종료하려면 **종료**를 선택합니다.
 
 설정에서 갱신 간격(기본 60초), 상세 창을 항상 위에 표시, 잔여 한도 10% 이하 알림, 미니 위젯 표시·도킹, Windows 로그인 시 접힌 상태로 시작을 변경할 수 있습니다. 자동 시작은 기본적으로 꺼져 있습니다. 미니 위젯만 숨겼을 때는 알림 영역 우클릭 → **왼쪽 미니 위젯 표시**로 복구할 수 있습니다.
 
-미니 위젯은 앞의 두 연결을 표시합니다. 계정에 한도 창이 여러 개 있으면 그중 가장 낮은 **잔여 비율**을 표시합니다. 연결이 더 많으면 두 번째 줄에 `+개수`를 표시하며 모든 연결은 상세 창에서 볼 수 있습니다. 이전 조회값에는 `이전`, 조회할 수 없는 값에는 `—`를 표시합니다.
+미니 위젯은 **앞의 3개 연결을 여백 있는 한 줄**로 표시합니다. 검은 바탕을 그리지 않고 작업표시줄 배경이 비치며, 시스템의 밝은/어두운 테마에 맞게 글자색을 바꿉니다. 2개일 때는 폭이 줄고, 3개는 모두 표시하며, 4개부터는 **`+N` 버튼**을 붙입니다. 예를 들어 8개 연결이면 3개와 `+5`가 표시됩니다. 미니 위젯의 최대 폭은 340 논리 픽셀이며 계정 수에 따라 계속 넓어지지 않습니다. `+N`을 클릭하면 스크롤 가능한 전체 목록이 열립니다.
 
-작업표시줄 내부 도킹은 **Windows 11의 가운데 정렬된 가로 작업표시줄**을 대상으로 합니다. Windows 10, 왼쪽 정렬, 세로 작업표시줄 또는 도킹 실패 시에는 시작·검색 버튼을 가리지 않도록 작업표시줄 바로 위에 표시합니다. 설정에서 도킹을 해제하면 이 배치를 직접 선택할 수도 있습니다. Explorer 내부 창 구조는 공식 확장 API가 아니므로 Windows 업데이트에 따라 달라질 수 있습니다. 도킹된 미니 위젯에는 항상 위에 표시를 강제하지 않으며 작업표시줄의 숨김 상태를 따릅니다. Explorer가 다시 시작돼 창이 사라지면 재연결을 시도합니다.
+계정에 한도 창이 여러 개 있으면 그중 가장 낮은 **잔여 비율**을 표시합니다. 이전 조회값에는 `이전`, 조회할 수 없는 값에는 `—`, 사용 제한에는 `제한`을 표시합니다. 계정 편집의 **작업표시줄 이름**으로 최대 6글자의 짧은 이름을 지정할 수 있습니다. 비워두면 이름을 줄여 표시하며 끝의 계정 번호는 유지합니다(`nmailkaist2` → `nmail2`).
+
+상세 창은 밝은 접이식 목록입니다. 전체 계정과 잔여 비율을 먼저 보여주고, **계정을 클릭하면 초기화 시각, 모든 한도 창, 일별·누적 토큰, 추이, 리셋 횟수**를 펼칩니다. 펼친 상태는 자동 갱신 뒤에도 유지됩니다. 기존 연결 설정은 업그레이드 뒤에도 유지됩니다.
+
+작업표시줄 내부 도킹은 **Windows 11의 가운데 정렬된 가로 작업표시줄**을 대상으로 합니다. Windows 10, 왼쪽 정렬, 세로 작업표시줄 또는 도킹 실패 시에는 시작·검색 버튼을 가리지 않도록 작업표시줄 바로 위에 표시합니다. 설정에서 도킹을 해제하면 이 배치를 직접 선택할 수도 있습니다. Explorer 내부 창 구조는 공식 확장 API가 아니므로 Windows 업데이트에 따라 달라질 수 있습니다. 도킹된 미니 위젯에는 항상 위에 표시를 강제하지 않으며 작업표시줄의 숨김 상태를 따릅니다. 작업표시줄 바로 위 모드는 다른 일반 창 위에 표시하고, 다른 앱의 전경 창이 모니터 전체를 덮으면 숨김을 시도합니다. Explorer가 다시 시작돼 창이 사라지면 재연결을 시도합니다.
 
 ## What it shows
 
@@ -91,13 +99,14 @@ UI preview and layout verification:
 .\dist\CodexAccountMonitor.exe --demo --screenshot C:\Temp\monitor-preview.png
 # Native widget check on an interactive Windows desktop:
 .\dist\CodexAccountMonitor.exe --demo --widget-check C:\Temp\monitor-widget-check
+.\dist\CodexAccountMonitor.exe --demo --demo-accounts 8 --widget-check C:\Temp\monitor-overflow-check
 ```
 
-`--open` opens the detail panel immediately; normal launch starts with the mini widget. `--settings <absolute-path>` loads an alternative settings file for controlled checks. `--live-screenshot <absolute-path>` queries configured accounts, saves the rendered details and a neighboring `mini-preview.png`, and exits. **Live screenshots are private data and should not be committed.** Demo/screenshot modes do not save connection changes or enable startup registration.
+`--open` opens the detail panel immediately; normal launch starts with the mini widget. `--demo-accounts 1..12` selects the number of fictional demo connections (default: 3). `--settings <absolute-path>` loads an alternative settings file for controlled checks. `--live-screenshot <absolute-path>` queries configured accounts, saves the rendered details plus light/dark mini previews, and exits. **Live screenshots are private data and should not be committed.** Demo/screenshot modes do not save connection changes or enable startup registration.
 
 The deterministic checks cover multiple quota buckets, nullable data, account/workspace identity, invalid timestamps, backend-blocked states, safe SSH command construction, out-of-order JSON-RPC responses, RPC errors, and cancellation. CI builds the widget and checks those behaviors. Version tags build a self-contained executable and publish a GitHub release.
 
-The local native-widget check verifies actual visible mint pixels, pointer hit testing, menu and detail-opening handlers, collapse/close behavior, overlay mode, and disabling/restoring the mini widget. It records parent/style diagnostics and cropped widget images. Test clicks send messages only to this process's own widget; they do not inject physical mouse input. Verified on the development PC: an actual Explorer child, no topmost style, 10 widget checks and 17 parser/transport checks passed. Physical mouse use, Explorer restart, full-screen applications, and multiple-monitor/DPI changes still need separate manual verification. CI renders both previews without requiring an interactive Explorer taskbar.
+The local native-widget check compares visible text pixels with the rendered surface and verifies pointer hit testing, menu/detail handlers, collapse/close behavior, overlay mode, the three-account width bound, full-list overflow, and expanded-row persistence across refresh. It records parent/style diagnostics and cropped widget images. Test clicks send messages only to this process's own widget; they do not inject physical mouse input. Verified on the development PC: an actual Explorer child, no topmost style when docked, 3- and 8-account layouts (13/15 widget checks), and 17 parser/transport checks. Physical mouse use, Explorer restart, full-screen applications, and multiple-monitor/DPI changes still need separate manual verification. CI renders 3- and 8-account previews without requiring an interactive Explorer taskbar.
 
 ## 출처와 제작 방식 · Credits
 
@@ -114,6 +123,7 @@ This project credits **pjhun0412's Codex Pulse** for the original widget concept
 
 - [Official Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)
 - [Official Codex authentication and credential storage](https://learn.chatgpt.com/docs/auth)
+- [Microsoft layered-window API and transparency](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-updatelayeredwindow)
 
 This is a community utility and is not affiliated with or endorsed by OpenAI or the original Codex Pulse author.
 

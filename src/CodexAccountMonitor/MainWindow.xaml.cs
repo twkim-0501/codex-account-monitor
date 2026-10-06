@@ -39,12 +39,11 @@ public partial class MainWindow : Window
     private readonly string? screenshotPath;
     public bool StartsCollapsed => screenshotPath is null && settings.ShowMiniWidget;
 
-    public MainWindow(bool demo, string? screenshotPath, string? customSettings)
+    public MainWindow(bool demo, string? screenshotPath, string? customSettings, int demoAccounts = 3)
     {
         InitializeComponent();
         this.demo = demo;
         this.screenshotPath = screenshotPath;
-        if (demo) Height = 900;
         store = new(customSettings);
         try { settings = store.Load(); }
         catch (InvalidDataException error) { MessageBox.Show(error.Message, Title); settings = new(); }
@@ -53,7 +52,7 @@ public partial class MainWindow : Window
         Height = Math.Min(Height, area.Height - 24);
         Left = area.Left + 12;
         Top = Math.Max(area.Top + 12, area.Bottom - Height - 12);
-        if (demo) LoadDemo();
+        if (demo) LoadDemo(demoAccounts);
         else foreach (var snapshot in store.LoadCache()) snapshots[snapshot.SourceId] = snapshot;
         if (screenshotPath is null)
         {
@@ -98,12 +97,17 @@ public partial class MainWindow : Window
         else { timer.Start(); _ = RefreshAsync(); }
     }
 
-    private void LoadDemo()
+    private void LoadDemo(int count)
     {
-        settings.Sources = [new() { Id = "demo-local", Name = "Personal", Kind = "local" }, new() { Id = "demo-ssh", Name = "Research", Kind = "ssh", SshHost = "research-server" }];
-        snapshots["demo-local"] = DemoSnapshot("demo-local", "personal@example.com", "account-a", 33, 54, 487_000_000, 33_065_000_000);
-        snapshots["demo-ssh"] = DemoSnapshot("demo-ssh", "research@example.com", "account-b", 72, 40, 124_500_000, 12_800_000_000);
-        foreach (var source in settings.Sources) healthy.Add(source.Id);
+        settings.Sources = [];
+        for (var i = 0; i < Math.Clamp(count, 1, 12); i++)
+        {
+            var name = i switch { 0 => "Personal", 1 => "Research", 2 => "Backup", _ => $"Account {i + 1}" };
+            var source = new AccountSource { Id = $"demo-{i}", Name = name, ShortName = i switch { 0 => "My", 1 => "Lab", 2 => "Alt", _ => $"A{i + 1}" }, Kind = i == 1 ? "ssh" : "local", SshHost = i == 1 ? "research-server" : null };
+            settings.Sources.Add(source);
+            snapshots[source.Id] = DemoSnapshot(source.Id, $"{name.Replace(" ", "").ToLowerInvariant()}@example.com", $"account-{i}", 33 + i * 9 % 60, 25 + i * 12 % 70, 487_000_000 / (i + 1), 33_065_000_000 / (i + 1));
+            healthy.Add(source.Id);
+        }
     }
     private static AccountSnapshot DemoSnapshot(string id, string email, string accountId, double weekly, double hourly, long latest, long lifetimeTokens) => new()
     {
@@ -148,7 +152,7 @@ public partial class MainWindow : Window
         finally
         {
             refreshing = false;
-            if (!exiting) { RenderCards(); FooterText.Text = demo ? "DEMO · 예시 데이터" : $"{settings.RefreshSeconds}초 갱신 · {miniWidget?.Status ?? "알림 영역"}"; }
+            if (!exiting) { RenderCards(); FooterText.Text = demo ? "예시 데이터" : $"{settings.RefreshSeconds}초마다 갱신 · {DateTime.Now:HH:mm}"; }
         }
     }
 
@@ -178,7 +182,8 @@ public partial class MainWindow : Window
         if (exiting) return;
         Cards.Children.Clear();
         var sources = settings.Sources.Where(x => x.Enabled).ToArray();
-        SummaryText.Text = demo ? "예시 데이터 · 로컬과 원격 계정을 한 화면에" : $"연결 {healthy.Count(x => sources.Any(s => s.Id == x))}/{sources.Length} · 계정별 한도와 토큰";
+        if (rowCount != sources.Length) SizePanel();
+        SummaryText.Text = demo ? $"{sources.Length}개 계정 · 예시 데이터" : $"{sources.Length}개 계정 · {healthy.Count(x => sources.Any(s => s.Id == x))}개 연결됨";
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources)
         {
@@ -186,7 +191,7 @@ public partial class MainWindow : Window
             var duplicate = snapshot?.IdentityKey is { } identity && !seen.Add(identity);
             Cards.Children.Add(BuildCard(source, snapshot, duplicate));
         }
-        if (sources.Length == 0) Cards.Children.Add(Text("+ 연결을 눌러 로컬 또는 SSH 계정을 추가하세요.", 13, "#93A4B8"));
+        if (sources.Length == 0) Cards.Children.Add(Text("+ 계정을 눌러 로컬 또는 SSH 계정을 추가하세요.", 12, "#90919B"));
         if (tray is not null)
         {
             var tooltip = string.Join(" | ", sources.Take(3).Select(source => snapshots.TryGetValue(source.Id, out var data) && data.Windows.Count > 0
@@ -197,80 +202,10 @@ public partial class MainWindow : Window
         {
             snapshots.TryGetValue(source.Id, out var data);
             return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
-                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false);
+                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false, source.ShortName);
         }).ToArray());
     }
 
-    private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate)
-    {
-        var stack = new StackPanel();
-        var header = new Grid();
-        header.ColumnDefinitions.Add(new ColumnDefinition()); header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titles = new StackPanel();
-        titles.Children.Add(Text(source.Name, 15, "#EDF4FA", FontWeights.SemiBold));
-        var identity = Text(MetricFormatting.MaskEmail(data?.Email), 11, "#93A4B8");
-        identity.ToolTip = data?.Email;
-        titles.Children.Add(identity);
-        header.Children.Add(titles);
-        var menu = new Button { Content = "···", Padding = new Thickness(8, 2, 8, 2), VerticalAlignment = VerticalAlignment.Top, ToolTip = "연결 편집 / 삭제" };
-        menu.Click += (_, _) => EditSource(source);
-        Grid.SetColumn(menu, 1); header.Children.Add(menu); stack.Children.Add(header);
-        stack.Children.Add(Text($"{(data?.Plan ?? "CODEX").ToUpperInvariant()}  ·  {source.Location}", 10, "#52DCC4", margin: new Thickness(0, 9, 0, 10)));
-        if (errors.TryGetValue(source.Id, out var error)) stack.Children.Add(Text(error, 11, "#F5B86D", margin: new Thickness(0, 0, 0, 8)));
-        else if (data is not null && !healthy.Contains(source.Id)) stack.Children.Add(Text("이전 조회값 · 최신 값 확인 중", 11, "#F5B86D"));
-        if (duplicate) stack.Children.Add(Text("같은 계정의 다른 연결 · 중복 합산하지 않음", 10, "#A798F5"));
-        if (data?.OrdinaryUsageAllowed == false) stack.Children.Add(Text("현재 일반 사용 제한 · 계정 상태 확인", 11, "#F5B86D"));
-        if (data is null) stack.Children.Add(Text("사용량을 조회하고 있습니다…", 12, "#93A4B8", margin: new Thickness(0, 7, 0, 12)));
-        else
-        {
-            foreach (var window in data.Windows)
-            {
-                var row = new DockPanel { Margin = new Thickness(0, 5, 0, 5) };
-                var percent = Text($"{window.RemainingPercent:0}% 남음", 14, window.RemainingPercent <= 10 ? "#F5B86D" : "#52DCC4", FontWeights.SemiBold);
-                DockPanel.SetDock(percent, Dock.Right); row.Children.Add(percent);
-                var quotaLabel = window.DurationLabel + (data.Windows.Select(x => x.Bucket).Distinct().Count() > 1 ? " · " + window.Label : "");
-                row.Children.Add(Text(quotaLabel, 12, "#EDF4FA")); stack.Children.Add(row);
-                var track = new Grid();
-                track.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(window.RemainingPercent, GridUnitType.Star) });
-                track.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100 - window.RemainingPercent, GridUnitType.Star) });
-                track.Children.Add(new Border { Background = Brush(window.RemainingPercent <= 10 ? "#F5B86D" : "#52DCC4"), CornerRadius = new CornerRadius(3) });
-                stack.Children.Add(new Border { Height = 5, Background = Brush("#263341"), CornerRadius = new CornerRadius(3), Child = track });
-                stack.Children.Add(Text(MetricFormatting.Reset(window, DateTimeOffset.Now), 10, "#93A4B8", margin: new Thickness(0, 5, 0, 8)));
-            }
-            if (data.Windows.Count == 0) stack.Children.Add(Text(data.LimitsNote ?? "사용 한도 미제공", 11, "#93A4B8"));
-            stack.Children.Add(new Border { Height = 1, Background = Brush("#293343"), Margin = new Thickness(0, 5, 0, 10) });
-            var latest = data.Daily?.LastOrDefault();
-            stack.Children.Add(MetricRow(latest is null ? "일별 토큰" : $"일별 토큰 · {(latest.Date.Length >= 10 ? latest.Date[5..10] : latest.Date)}", MetricFormatting.Tokens(latest?.Tokens)));
-            stack.Children.Add(MetricRow("누적 토큰", MetricFormatting.Tokens(data.LifetimeTokens)));
-            if (data.UsageNote is not null) stack.Children.Add(Text(data.UsageNote, 10, "#93A4B8"));
-            if (data.Daily is { Count: > 1 }) stack.Children.Add(Sparkline(data.Daily.TakeLast(14).ToArray()));
-            var footer = $"갱신 {data.UpdatedAt.ToLocalTime():MM/dd HH:mm:ss}";
-            if (data.ResetCredits is { } credits) footer += $"  ·  리셋 {credits}회";
-            stack.Children.Add(Text(footer, 9, "#93A4B8", margin: new Thickness(0, 8, 0, 0)));
-        }
-        return new Border { Background = Brush("#141B25"), BorderBrush = Brush("#293343"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(14), Margin = new Thickness(0, 0, 0, 12), Child = stack };
-    }
-
-    private static Grid MetricRow(string label, string value)
-    {
-        var grid = new Grid { Margin = new Thickness(0, 3, 0, 3) };
-        grid.Children.Add(Text(label, 11, "#93A4B8"));
-        var right = Text(value, 13, "#EDF4FA", FontWeights.SemiBold); right.HorizontalAlignment = HorizontalAlignment.Right; grid.Children.Add(right);
-        return grid;
-    }
-    private FrameworkElement Sparkline(DailyTokens[] daily)
-    {
-        var canvas = new Canvas { Height = 35, HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 9, 0, 0), ClipToBounds = true, ToolTip = "최근 일별 토큰 추이 · 서버가 제공한 날짜 기준" };
-        var max = Math.Max(1, daily.Max(x => x.Tokens));
-        var line = new Polyline { Stroke = Brush("#A798F5"), StrokeThickness = 1.8, StrokeLineJoin = PenLineJoin.Round };
-        canvas.SizeChanged += (_, _) =>
-        {
-            line.Points.Clear();
-            for (var i = 0; i < daily.Length; i++) line.Points.Add(new Point(i * Math.Max(1, canvas.ActualWidth) / (daily.Length - 1), 32 - Math.Clamp(daily[i].Tokens / (double)max, 0, 1) * 27));
-        };
-        canvas.Children.Add(line); return canvas;
-    }
     private static SolidColorBrush Brush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Text(string value, double size, string color, FontWeight? weight = null, Thickness? margin = null) => new()
     { Text = value, FontSize = size, Foreground = Brush(color), FontWeight = weight ?? FontWeights.Normal, TextWrapping = TextWrapping.Wrap, Margin = margin ?? new Thickness(0) };
@@ -349,9 +284,25 @@ public partial class MainWindow : Window
         tray?.ContextMenuStrip?.Close();
         widget.SendTestClick(); await Task.Delay(500);
         checks["miniClickOpensDetails"] = IsVisible;
+        checks["allAccountsListed"] = Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
+        checks["threeAccountsAndOverflowBounded"] = widget.VisibleAccounts == Math.Min(3, settings.Sources.Count(x => x.Enabled)) && widget.OverflowAccounts == Math.Max(0, settings.Sources.Count(x => x.Enabled) - 3) && widget.ScreenBounds.Width / (GetDpiForWidget(widget.Handle) / 96d) <= 340.5;
         UpdateLayout(); Capture(System.IO.Path.Combine(directory, "details.png"));
+        if (Cards.Children.Count > 0 && ((Border)Cards.Children[0]).Child is Expander first)
+        {
+            first.IsExpanded = true; UpdateLayout(); Capture(System.IO.Path.Combine(directory, "account-expanded.png"));
+            RenderCards();
+            checks["expandedAccountSurvivesRefresh"] = ((Border)Cards.Children[0]).Child is Expander { IsExpanded: true };
+            ((Expander)((Border)Cards.Children[0]).Child).IsExpanded = false;
+        }
         HideClick(this, new RoutedEventArgs()); await Task.Delay(200);
         checks["collapsePreservesMiniWidget"] = !IsVisible && widget.Handle != 0;
+        if (widget.OverflowAccounts > 0)
+        {
+            checks["overflowBadgeReceivesPointer"] = widget.HitTestOverflow();
+            widget.SendTestClick(overflowBadge: true); await Task.Delay(300);
+            checks["overflowBadgeOpensAllAccounts"] = IsVisible && Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
+            Hide();
+        }
         widget.SendTestClick(); await Task.Delay(300);
         widget.SendTestClick(); await Task.Delay(300);
         checks["miniClickTogglesDetails"] = !IsVisible;
@@ -373,12 +324,14 @@ public partial class MainWindow : Window
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         using var stream = File.Create(path); encoder.Save(stream);
-        TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), settings.Sources.Where(x => x.Enabled).Select(source =>
+        var miniAccounts = settings.Sources.Where(x => x.Enabled).Select(source =>
         {
             snapshots.TryGetValue(source.Id, out var data);
             return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
-                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false);
-        }).ToArray());
+                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false, source.ShortName);
+        }).ToArray();
+        TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), miniAccounts);
+        TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview-dark.png"), miniAccounts, lightTheme: false);
     }
     private static Drawing.Icon CreateIcon()
     {

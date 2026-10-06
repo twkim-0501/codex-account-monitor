@@ -12,7 +12,7 @@ using System.Windows.Threading;
 
 namespace CodexAccountMonitor;
 
-public sealed record MiniAccount(string Name, double? Remaining, bool Fresh, bool Blocked);
+public sealed record MiniAccount(string Name, double? Remaining, bool Fresh, bool Blocked, string? ShortName = null);
 
 /// <summary>A small native child of Explorer. The WPF detail panel remains a separate window.</summary>
 public sealed class TaskbarWidget : IDisposable
@@ -30,12 +30,15 @@ public sealed class TaskbarWidget : IDisposable
     private Rectangle bounds;
     private double scale = 1;
     private bool enabled, requestedDock, disposed, paintPending = true;
+    private bool lightTheme;
     public event Action? Click;
     public event Action? RightClick;
     public bool IsDocked { get; private set; }
     public string Status { get; private set; } = "미니 위젯 숨김";
     public Rectangle ScreenBounds => bounds;
     public nint Handle => handle;
+    public int VisibleAccounts => Math.Min(3, accounts.Count);
+    public int OverflowAccounts => Math.Max(0, accounts.Count - 3);
 
     public TaskbarWidget()
     {
@@ -77,8 +80,11 @@ public sealed class TaskbarWidget : IDisposable
         // A left-aligned taskbar has Start/search buttons in this space. Keep them accessible.
         var leftAligned = Environment.OSVersion.Version.Build < 22000 || IsTaskbarLeftAligned();
         var dock = allowDock && requestedDock && taskbarFound && trayRect.Right - trayRect.Left > trayRect.Bottom - trayRect.Top && !leftAligned;
-        var width = (int)Math.Round(248 * scale);
-        var height = dock ? Math.Clamp(trayRect.Bottom - trayRect.Top - 4, 32, (int)(56 * scale)) : (int)Math.Round(48 * scale);
+        var width = (int)Math.Round(MiniWidgetRenderer.Width(accounts.Count) * scale);
+        var height = dock ? Math.Clamp(trayRect.Bottom - trayRect.Top - 4, 30, (int)(44 * scale)) : (int)Math.Round(36 * scale);
+        using var personalization = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+        var nextLightTheme = personalization?.GetValue("SystemUsesLightTheme") is int theme && theme == 1;
+        if (nextLightTheme != lightTheme) { lightTheme = nextLightTheme; paintPending = true; }
         int x, y;
         if (dock)
         {
@@ -96,7 +102,7 @@ public sealed class TaskbarWidget : IDisposable
         if (handle != 0 && (!IsWindow(handle) || parent != nextParent)) DestroyOwnWindow();
         if (handle == 0)
         {
-            handle = CreateWindowEx(Layered | ToolWindow | NoActivate, ClassName, "Codex Account Monitor · Mini",
+            handle = CreateWindowEx(Layered | ToolWindow | NoActivate | (dock ? 0u : 8u), ClassName, "Codex Account Monitor · Mini",
                 (dock ? Child : Popup) | Visible, dock ? x - trayRect.Left : x, dock ? y - trayRect.Top : y, width, height,
                 nextParent, 0, GetModuleHandle(null), 0);
             if (handle == 0) throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -104,13 +110,27 @@ public sealed class TaskbarWidget : IDisposable
         }
         if (bounds != next)
         {
-            if (!SetWindowPos(handle, 0, dock ? x - trayRect.Left : x, dock ? y - trayRect.Top : y, width, height, 0x10 | 0x200))
+            if (!SetWindowPos(handle, dock ? 0 : -1, dock ? x - trayRect.Left : x, dock ? y - trayRect.Top : y, width, height, 0x10 | 0x200))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             bounds = next; paintPending = true;
         }
         IsDocked = dock;
         Status = dock ? "미니 위젯 · 작업표시줄 안" : "미니 위젯 · 작업표시줄 바로 위";
         if (paintPending) { Paint(); paintPending = false; }
+        if (!dock) ShowWindow(handle, OtherWindowCoversMonitor(taskbar) ? 0 : 4);
+    }
+
+    private static bool OtherWindowCoversMonitor(nint taskbar)
+    {
+        var foreground = GetForegroundWindow();
+        if (foreground == 0 || foreground == GetShellWindow()) return false;
+        GetWindowThreadProcessId(foreground, out var process);
+        GetWindowThreadProcessId(taskbar, out var explorer);
+        if (process == Environment.ProcessId || process == explorer) return false;
+        var monitor = new MonitorInformation { Size = (uint)Marshal.SizeOf<MonitorInformation>() };
+        return GetMonitorInfo(MonitorFromWindow(taskbar, 1), ref monitor) && GetWindowRect(foreground, out var window)
+            && window.Left <= monitor.Monitor.Left && window.Top <= monitor.Monitor.Top
+            && window.Right >= monitor.Monitor.Right && window.Bottom >= monitor.Monitor.Bottom;
     }
 
     private static bool IsTaskbarLeftAligned()
@@ -119,55 +139,33 @@ public sealed class TaskbarWidget : IDisposable
         return key?.GetValue("TaskbarAl") is int alignment && alignment == 0;
     }
 
-    private static Bitmap Render(IReadOnlyList<MiniAccount> accounts, Rectangle bounds, double scale)
-    {
-        var image = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppPArgb);
-        using var graphics = Graphics.FromImage(image);
-        graphics.Clear(Color.FromArgb(255, 18, 25, 34));
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        var s = (float)scale;
-        using var accent = new SolidBrush(Color.FromArgb(82, 220, 196));
-        graphics.FillRectangle(accent, 3 * s, 5 * s, 2 * s, image.Height - 10 * s);
-        using var nameFont = new Font("Malgun Gothic", 10 * s, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var valueFont = new Font("Segoe UI", 12 * s, FontStyle.Bold, GraphicsUnit.Pixel);
-        using var text = new SolidBrush(Color.FromArgb(237, 244, 250));
-        using var muted = new SolidBrush(Color.FromArgb(147, 164, 184));
-        using var warning = new SolidBrush(Color.FromArgb(245, 184, 109));
-        using var format = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
-        using var right = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap };
-        var rows = accounts.Take(2).ToArray();
-        var rowHeight = (image.Height - 4 * s) / 2f;
-        for (var i = 0; i < Math.Max(1, rows.Length); i++)
-        {
-            var account = i < rows.Length ? rows[i] : new MiniAccount("CODEX · + 연결", null, false, false);
-            var name = account.Name + (i == 1 && accounts.Count > 2 ? $"  +{accounts.Count - 2}" : "");
-            var value = account.Blocked ? "사용 제한" : account.Remaining is { } remaining ? $"{(account.Fresh ? "" : "이전 ")}{remaining:0}% 남음" : "—";
-            var color = account.Blocked || !account.Fresh || account.Remaining <= 10 ? warning : accent;
-            var y = 2 * s + i * rowHeight;
-            graphics.DrawString(name, nameFont, text, new RectangleF(13 * s, y, image.Width - 125 * s, rowHeight), format);
-            graphics.DrawString(value, valueFont, color, new RectangleF(image.Width - 118 * s, y, 100 * s, rowHeight), right);
-        }
-        if (rows.Length < 2)
-            graphics.DrawString(rows.Length == 0 ? "클릭해서 계정 추가" : "잔여 한도 · 클릭해서 상세 보기", nameFont, muted,
-                new RectangleF(13 * s, 2 * s + rowHeight, image.Width - 25 * s, rowHeight), format);
-        return image;
-    }
-
     private void Paint()
     {
-        using var image = Render(accounts, bounds, scale);
+        using var image = MiniWidgetRenderer.Render(accounts, bounds.Size, scale, lightTheme);
         var screen = GetDC(0);
         var memory = CreateCompatibleDC(screen);
-        var bitmap = image.GetHbitmap();
+        var information = new BitmapInformation { Size = 40, Width = image.Width, Height = -image.Height, Planes = 1, Bits = 32 };
+        var bitmap = CreateDIBSection(memory, ref information, 0, out var pixels, 0, 0);
+        if (bitmap == 0) { DeleteDC(memory); ReleaseDC(0, screen); throw new Win32Exception(Marshal.GetLastWin32Error()); }
         var previous = SelectObject(memory, bitmap);
         try
         {
+            var data = image.LockBits(new Rectangle(Point.Empty, image.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                var row = new byte[image.Width * 4];
+                for (var y = 0; y < image.Height; y++)
+                {
+                    Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, row.Length);
+                    Marshal.Copy(row, 0, pixels + y * row.Length, row.Length);
+                }
+            }
+            finally { image.UnlockBits(data); }
             var size = new NativeSize { Width = bounds.Width, Height = bounds.Height };
             var origin = new NativePoint();
-            var blend = new Blend { Operation = 0, Alpha = 255, Format = 0 };
-            // Use an opaque layered surface so Explorer's composition does not hide a WPF child.
-            if (!UpdateLayeredWindow(handle, screen, 0, ref size, memory, ref origin, 0, ref blend, 4))
+            var blend = new Blend { Operation = 0, Alpha = 255, Format = 1 };
+            // Copy premultiplied BGRA directly. Per-pixel alpha leaves Explorer's background visible.
+            if (!UpdateLayeredWindow(handle, screen, 0, ref size, memory, ref origin, 0, ref blend, 2))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
         }
         finally { SelectObject(memory, previous); DeleteObject(bitmap); DeleteDC(memory); ReleaseDC(0, screen); }
@@ -175,26 +173,32 @@ public sealed class TaskbarWidget : IDisposable
 
     public object Inspect() => new
     {
-        IsDocked, Status, exists = handle != 0 && IsWindow(handle), visible = handle != 0 && IsWindowVisible(handle),
+        IsDocked, Status, VisibleAccounts, OverflowAccounts, lightTheme, exists = handle != 0 && IsWindow(handle), visible = handle != 0 && IsWindowVisible(handle),
         parentIsTaskbar = handle != 0 && GetParent(handle) == FindWindow("Shell_TrayWnd", null),
         childStyle = handle != 0 && (GetWindowLongPtr(handle, -16).ToInt64() & Child) != 0,
         topmost = handle != 0 && (GetWindowLongPtr(handle, -20).ToInt64() & 8) != 0,
         bounds = new { bounds.X, bounds.Y, bounds.Width, bounds.Height }, scale
     };
 
-    public bool HitTestCenter() => handle != 0 && WindowFromPoint(new NativePoint { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 }) == handle;
+    public bool HitTestCenter() => handle != 0 && WindowFromPoint(new NativePoint { X = bounds.Left + (int)(40 * scale), Y = bounds.Top + bounds.Height / 2 }) == handle;
+    public bool HitTestOverflow() => OverflowAccounts > 0 && WindowFromPoint(new NativePoint { X = bounds.Left + (int)(320 * scale), Y = bounds.Top + bounds.Height / 2 }) == handle;
 
-    public static void SavePreview(string path, IReadOnlyList<MiniAccount> accounts)
+    public static void SavePreview(string path, IReadOnlyList<MiniAccount> accounts, bool lightTheme = true)
     {
-        using var image = Render(accounts, new Rectangle(0, 0, 248, 48), 1);
-        image.Save(path, ImageFormat.Png);
+        var size = new Size(MiniWidgetRenderer.Width(accounts.Count), 44);
+        using var image = MiniWidgetRenderer.Render(accounts, size, 1, lightTheme);
+        using var preview = new Bitmap(size.Width, size.Height);
+        using (var graphics = Graphics.FromImage(preview)) { graphics.Clear(lightTheme ? Color.FromArgb(241, 242, 246) : Color.FromArgb(30, 31, 34)); graphics.DrawImageUnscaled(image, Point.Empty); }
+        preview.Save(path, ImageFormat.Png);
     }
 
-    public void SendTestClick(bool rightButton = false)
+    public void SendTestClick(bool rightButton = false, bool overflowBadge = false)
     {
         // Exercise only this process's own widget handler. This does not move or click the user's mouse.
         if (handle == 0 || !IsWindow(handle)) throw new InvalidOperationException("Mini widget is unavailable");
-        SendMessage(handle, rightButton ? 0x205u : 0x202u, 0, 0);
+        var x = (int)((overflowBadge ? 320 : 40) * scale);
+        var coordinates = (x & 0xffff) | (bounds.Height / 2 << 16);
+        SendMessage(handle, rightButton ? 0x205u : 0x202u, 0, coordinates);
     }
 
     public bool CaptureVisible(string path)
@@ -204,14 +208,16 @@ public sealed class TaskbarWidget : IDisposable
         using (var graphics = Graphics.FromImage(image)) graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         image.Save(path, ImageFormat.Png);
-        var mint = 0;
+        using var expected = MiniWidgetRenderer.Render(accounts, bounds.Size, scale, lightTheme);
+        var matches = 0;
         for (var y = 0; y < image.Height; y++)
-            for (var x = 0; x < Math.Min(image.Width, (int)(8 * scale)); x++)
+            for (var x = 0; x < image.Width; x++)
             {
                 var pixel = image.GetPixel(x, y);
-                if (pixel.G > 160 && pixel.B > 130 && pixel.R < 120) mint++;
+                var target = expected.GetPixel(x, y);
+                if (target.A >= 235 && Math.Abs(pixel.R - target.R) < 25 && Math.Abs(pixel.G - target.G) < 25 && Math.Abs(pixel.B - target.B) < 25) matches++;
             }
-        return mint > 10;
+        return matches > 12;
     }
 
     private void DestroyOwnWindow()
@@ -259,9 +265,19 @@ public sealed class TaskbarWidget : IDisposable
         public nint SmallIcon;
     }
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct MonitorInformation { public uint Size; public NativeRect Monitor, Work; public uint Flags; }
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct NativeSize { public int Width, Height; }
     [StructLayout(LayoutKind.Sequential, Pack = 1)] private struct Blend { public byte Operation, Flags, Alpha, Format; }
+    [StructLayout(LayoutKind.Sequential)] private struct BitmapInformation
+    {
+        public uint Size;
+        public int Width, Height;
+        public ushort Planes, Bits;
+        public uint Compression, ImageSize;
+        public int XPixelsPerMeter, YPixelsPerMeter;
+        public uint ColorsUsed, ColorsImportant;
+    }
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern ushort RegisterClassEx(ref WindowClass value);
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern nint CreateWindowEx(uint extendedStyle, string className, string name, uint style, int x, int y, int width, int height, nint parent, nint menu, nint instance, nint parameter);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern nint DefWindowProc(nint window, uint message, nint wParam, nint lParam);
@@ -281,7 +297,14 @@ public sealed class TaskbarWidget : IDisposable
     [DllImport("user32.dll", SetLastError = true)] private static extern bool UpdateLayeredWindow(nint window, nint destDC, nint destination, ref NativeSize size, nint sourceDC, ref NativePoint source, uint colorKey, ref Blend blend, uint flags);
     [DllImport("user32.dll")] private static extern nint SendMessage(nint window, uint message, nint wParam, nint lParam);
     [DllImport("user32.dll")] private static extern nint WindowFromPoint(NativePoint point);
+    [DllImport("user32.dll")] private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern nint GetShellWindow();
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint window, out uint processId);
+    [DllImport("user32.dll")] private static extern nint MonitorFromWindow(nint window, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool GetMonitorInfo(nint monitor, ref MonitorInformation information);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(nint window, int command);
     [DllImport("gdi32.dll")] private static extern nint CreateCompatibleDC(nint dc);
+    [DllImport("gdi32.dll", SetLastError = true)] private static extern nint CreateDIBSection(nint dc, ref BitmapInformation information, uint usage, out nint bits, nint section, uint offset);
     [DllImport("gdi32.dll")] private static extern nint SelectObject(nint dc, nint value);
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(nint value);
     [DllImport("gdi32.dll")] private static extern bool DeleteDC(nint dc);

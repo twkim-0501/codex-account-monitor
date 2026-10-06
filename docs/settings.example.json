@@ -6,7 +6,7 @@
   "showMiniWidget": true,
   "dockMiniWidget": true,
   "sources": [
-    { "id": "local", "name": "Personal", "kind": "local", "enabled": true },
-    { "id": "remote", "name": "Research", "kind": "ssh", "sshHost": "research-server", "enabled": true }
+    { "id": "local", "name": "Personal", "shortName": "My", "kind": "local", "enabled": true },
+    { "id": "remote", "name": "Research", "shortName": "Lab", "kind": "ssh", "sshHost": "research-server", "enabled": true }
   ]
 }

@@ -12,11 +12,12 @@ namespace CodexAccountMonitor;
 public sealed class SourceWindow : Window
 {
     private readonly TextBox name = new();
+    private readonly TextBox shortName = new() { MaxLength = 6 };
     private readonly ComboBox kind = new();
     private readonly ComboBox host = new() { IsEditable = true };
     private readonly TextBox binary = new();
     private readonly TextBox home = new();
-    private readonly TextBlock loginStatus = new() { TextWrapping = TextWrapping.Wrap, Foreground = MainBrush("#52DCC4"), Margin = new Thickness(0, 10, 0, 10) };
+    private readonly TextBlock loginStatus = new() { TextWrapping = TextWrapping.Wrap, Foreground = MainBrush("#777BAA"), Margin = new Thickness(0, 10, 0, 10) };
     private readonly Button login = new() { Content = "이 계정으로 로그인", Margin = new Thickness(0, 8, 0, 0) };
     private readonly Button save = new() { Content = "저장", IsDefault = true };
     private readonly string id;
@@ -30,12 +31,13 @@ public sealed class SourceWindow : Window
         id = existing?.Id ?? Guid.NewGuid().ToString("N");
         profilesRoot = Path.Combine(dataDirectory, "profiles");
         Title = existing is null ? "계정 연결 추가" : "계정 연결 편집";
-        Width = 460; Height = 650; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = MainBrush("#0C1016"); Foreground = MainBrush("#EDF4FA"); FontFamily = new FontFamily("Segoe UI, Malgun Gothic");
+        Width = 460; Height = 710; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        Background = MainBrush("#FAFAFC"); Foreground = MainBrush("#30323B"); FontFamily = new FontFamily("Segoe UI, Malgun Gothic");
         var stack = new StackPanel { Margin = new Thickness(24) };
         Content = new ScrollViewer { Content = stack };
         stack.Children.Add(new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 16) });
         Field(stack, "표시 이름", name); name.Text = existing?.Name ?? "";
+        Field(stack, "작업표시줄 이름 · 선택, 최대 6글자", shortName); shortName.Text = existing?.ShortName ?? "";
         kind.ItemsSource = new[] { "로컬 · 현재 Codex 로그인", "로컬 · 별도 계정으로 로그인", "SSH · 원격 서버의 Codex" };
         Field(stack, "연결 방식", kind);
         Field(stack, "SSH 별명 또는 user@host", host);
@@ -50,7 +52,7 @@ public sealed class SourceWindow : Window
         Field(stack, "Codex 실행파일 · 비워두면 자동 탐색", binary); binary.Text = existing?.CodexPath ?? "";
         Field(stack, "CODEX_HOME · 기본 경로는 비워두기", home); home.Text = existing?.CodexHome ?? "";
         stack.Children.Add(new TextBlock { Text = "별도 계정은 프로필을 분리해 현재 Codex 로그인을 유지합니다. SSH 연결은 기존 SSH 키와 서버의 로그인을 사용합니다.",
-            TextWrapping = TextWrapping.Wrap, FontSize = 11, Foreground = MainBrush("#93A4B8"), Margin = new Thickness(0, 12, 0, 6) });
+            TextWrapping = TextWrapping.Wrap, FontSize = 11, Foreground = MainBrush("#90919B"), Margin = new Thickness(0, 12, 0, 6) });
         stack.Children.Add(login); stack.Children.Add(loginStatus);
         login.Click += LoginClick;
         kind.SelectionChanged += (_, _) =>
@@ -77,7 +79,7 @@ public sealed class SourceWindow : Window
     private AccountSource BuildSource()
     {
         if (string.IsNullOrWhiteSpace(name.Text)) throw new ArgumentException("표시 이름을 입력하세요.");
-        var source = new AccountSource { Id = id, Name = name.Text.Trim(), Kind = kind.SelectedIndex == 2 ? "ssh" : "local", SshHost = Empty(host.Text), CodexPath = Empty(binary.Text),
+        var source = new AccountSource { Id = id, Name = name.Text.Trim(), ShortName = Empty(shortName.Text), Kind = kind.SelectedIndex == 2 ? "ssh" : "local", SshHost = Empty(host.Text), CodexPath = Empty(binary.Text),
             CodexHome = Empty(home.Text) };
         if (kind.SelectedIndex == 1 && source.CodexHome is null) source.CodexHome = Path.Combine(profilesRoot, id);
         if (source.Kind == "ssh" && source.CodexHome is not null && !source.CodexHome.StartsWith('/')) throw new ArgumentException("서버 CODEX_HOME은 절대 경로(/home/...)로 입력하세요.");
@@ -117,6 +119,6 @@ public sealed class SourceWindow : Window
     }
     private static string? Empty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static void Field(StackPanel stack, string label, Control control)
-    { stack.Children.Add(new TextBlock { Text = label, FontSize = 11, Margin = new Thickness(0, 12, 0, 5), Foreground = MainBrush("#93A4B8") }); stack.Children.Add(control); }
+    { stack.Children.Add(new TextBlock { Text = label, FontSize = 11, Margin = new Thickness(0, 12, 0, 5), Foreground = MainBrush("#90919B") }); stack.Children.Add(control); }
     private static SolidColorBrush MainBrush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
 }
