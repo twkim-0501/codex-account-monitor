@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+.vs/
+dist/
+*.user
+*.log
+auth.json
+settings.local.json
+cache.json
+.env*
+!*.example.json
+TestResults/
