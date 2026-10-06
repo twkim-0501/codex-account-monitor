@@ -1,6 +1,10 @@
 # Codex Account Monitor
 
+> 기존 **[Codex Pulse](https://github.com/pjhun0412/codex-pulse)**를 참고하여 **OpenAI Codex로 다중 계정·SSH 서버 모니터링 용도에 맞게 개조·확장한 개인용 프로그램**입니다. 원작의 아이디어와 UI에 대한 크레딧은 **[pjhun0412](https://github.com/pjhun0412)**에게 있습니다. 이 저장소의 구현은 C#/WPF로 재작성했습니다. 자세한 출처와 제작 방식은 아래에 명시했습니다.
+
 A native Windows widget for monitoring multiple Codex accounts, including accounts signed in on remote SSH servers. Built with WPF and .NET 10. No Electron runtime, telemetry, cloud dashboard, API key, or inference requests.
+
+An adaptation and extension of the Codex Pulse widget concept, developed using OpenAI Codex for personal multi-account and SSH monitoring. Original concept and UI credit: **[pjhun0412/codex-pulse](https://github.com/pjhun0412/codex-pulse)**. The implementation here was rewritten in C#/WPF.
 
 ![Widget preview with fictional accounts and example values](docs/preview.png)
 
@@ -85,13 +89,23 @@ UI preview and layout verification:
 
 The deterministic checks cover multiple quota buckets, nullable data, account/workspace identity, invalid timestamps, backend-blocked states, safe SSH command construction, out-of-order JSON-RPC responses, RPC errors, and cancellation. CI builds the widget and checks those behaviors. Version tags build a self-contained executable and publish a GitHub release.
 
-## References
+## 출처와 제작 방식 · Credits
+
+- **원작 및 UI·사용 방식 참고:** [Codex Pulse — pjhun0412/codex-pulse](https://github.com/pjhun0412/codex-pulse). Windows 작업표시줄에서 Codex 사용량과 시스템 상태를 확인하는 원작 위젯과, 사용자가 제공한 해당 프로그램의 스크린샷을 참고했습니다. 원본의 프로그램 이름, 버전 `0.1.0`, 식별자 `com.codexpulse.widget`는 [원본 설정 파일](https://github.com/pjhun0412/codex-pulse/blob/main/src-tauri/tauri.conf.json)에서 확인할 수 있습니다.
+- **개발 도구:** OpenAI Codex를 사용하여 설계, 코드 작성, 테스트, 빌드 및 문서를 작성했습니다.
+- **개조·확장 내용:** 여러 Codex 계정의 동시 표시, SSH 서버 계정 조회, 별도 로컬 계정 프로필, 연결별 상태 및 캐시, 잔여 한도 알림을 추가했습니다.
+
+여기서 "개조·확장"은 원작 위젯의 아이디어와 사용 경험을 개인 용도에 맞게 확장했다는 뜻입니다. 이 저장소의 코드는 C#/WPF/.NET 10으로 재작성한 구현이며, 원본 저장소를 직접 수정한 Git fork는 아닙니다. 원본 코드·아이콘·바이너리를 이 저장소에 포함하지 않았습니다. 원작의 아이디어와 UI를 본 프로젝트의 독창적인 창작으로 주장하지 않습니다.
+
+This project credits **pjhun0412's Codex Pulse** for the original widget concept and UI reference. OpenAI Codex was used to adapt that experience for multiple accounts and SSH hosts, including design, implementation, tests, builds, and documentation. This repository contains a C#/WPF rewrite rather than a direct source-code fork; it does not redistribute the original code, icons, or binaries.
+
+### Technical references
 
 - [Official Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)
 - [Official Codex authentication and credential storage](https://learn.chatgpt.com/docs/auth)
 
-This is an independent utility, not an official OpenAI application and not a modification of Codex Pulse.
+This is a community utility and is not affiliated with or endorsed by OpenAI or the original Codex Pulse author.
 
 ## License
 
-MIT.
+MIT for the implementation in this repository. The original Codex Pulse project remains the work of its respective author; this license does not relicense that project.
