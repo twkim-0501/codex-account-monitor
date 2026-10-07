@@ -40,7 +40,7 @@ public partial class MainWindow : Window
     private readonly bool firstRun;
     public bool StartsCollapsed => screenshotPath is null && settings.ShowMiniWidget && !firstRun;
 
-    public MainWindow(bool demo, string? screenshotPath, string? customSettings, int demoAccounts = 3)
+    public MainWindow(bool demo, string? screenshotPath, string? customSettings, int demoAccounts = 3, bool layoutCheck = false)
     {
         InitializeComponent();
         this.demo = demo;
@@ -57,7 +57,7 @@ public partial class MainWindow : Window
         Top = Math.Max(area.Top + 12, area.Bottom - Height - 12);
         if (demo) LoadDemo(demoAccounts);
         else foreach (var snapshot in store.LoadCache()) snapshots[snapshot.SourceId] = snapshot;
-        if (screenshotPath is null)
+        if (screenshotPath is null && !layoutCheck)
         {
             tray = new Forms.NotifyIcon { Icon = CreateIcon(), Text = "Codex Account Monitor", Visible = true };
             tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Dispatcher.Invoke(ToggleWindow); };
@@ -97,7 +97,7 @@ public partial class MainWindow : Window
                 await ExitAsync();
             };
         }
-        else { timer.Start(); _ = RefreshAsync(); }
+        else if (!layoutCheck) { timer.Start(); _ = RefreshAsync(); }
     }
 
     private void LoadDemo(int count)
@@ -185,7 +185,6 @@ public partial class MainWindow : Window
         if (exiting) return;
         Cards.Children.Clear();
         var sources = settings.Sources.Where(x => x.Enabled).ToArray();
-        if (rowCount != sources.Length) SizePanel();
         SummaryText.Text = demo ? $"{sources.Length}개 계정 · 예시 데이터" : $"{sources.Length}개 계정 · {healthy.Count(x => sources.Any(s => s.Id == x))}개 연결됨";
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources)
@@ -195,6 +194,7 @@ public partial class MainWindow : Window
             Cards.Children.Add(BuildCard(source, snapshot, duplicate));
         }
         if (sources.Length == 0) Cards.Children.Add(Text("+ 계정을 눌러 로컬 또는 SSH 계정을 추가하세요.", 12, "#90919B"));
+        SizePanel();
         if (tray is not null)
         {
             var tooltip = string.Join(" | ", sources.Take(3).Select(source => snapshots.TryGetValue(source.Id, out var data) && data.Windows.Count > 0
@@ -251,6 +251,8 @@ public partial class MainWindow : Window
     private void ToggleWindow() { if (IsVisible) Hide(); else ShowDetails(); }
     internal void ShowDetails()
     {
+        WindowState = WindowState.Normal;
+        SizePanel();
         if (miniWidget is { Handle: not 0 } widget)
         {
             var pixelBounds = widget.ScreenBounds;
@@ -259,7 +261,7 @@ public partial class MainWindow : Window
             Left = Math.Clamp(pixelBounds.Left / dpi, area.Left, Math.Max(area.Left, area.Right - Width));
             Top = Math.Max(area.Top + 4, pixelBounds.Top / dpi - Height - 6);
         }
-        Show(); WindowState = WindowState.Normal; Activate();
+        Show(); Activate();
     }
     [DllImport("user32.dll", EntryPoint = "GetDpiForWindow")] private static extern uint GetDpiForWidget(nint window);
     private void OnClosing(object? sender, CancelEventArgs e) { if (exiting) return; e.Cancel = true; Hide(); }
@@ -275,6 +277,7 @@ public partial class MainWindow : Window
     {
         Directory.CreateDirectory(directory);
         var checks = new Dictionary<string, bool>();
+        var panelLayouts = new Dictionary<string, object>();
         if (miniWidget is null) { File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), "{\"nativeWidgetAvailable\":false}"); return false; }
         while (refreshing) await Task.Delay(50);
         var widget = miniWidget;
@@ -292,13 +295,23 @@ public partial class MainWindow : Window
         checks["allAccountsListed"] = Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
         checks["threeAccountsAndOverflowBounded"] = widget.VisibleAccounts == Math.Min(3, settings.Sources.Count(x => x.Enabled)) && widget.OverflowAccounts == Math.Max(0, settings.Sources.Count(x => x.Enabled) - 3) && widget.ScreenBounds.Width / (GetDpiForWidget(widget.Handle) / 96d) <= 340.5;
         UpdateLayout(); Capture(System.IO.Path.Combine(directory, "details.png"));
+        checks["collapsedPanelFitsOrScreenLimited"] = ScrollOnlyAtHeightLimit();
+        panelLayouts["collapsed"] = PanelLayoutState();
         if (Cards.Children.Count > 0 && ((Border)Cards.Children[0]).Child is Expander first)
         {
-            first.IsExpanded = true; UpdateLayout(); Capture(System.IO.Path.Combine(directory, "account-expanded.png"));
+            first.IsExpanded = true;
+            await SettlePanelLayoutAsync();
+            Capture(System.IO.Path.Combine(directory, "account-expanded.png"));
             RenderCards();
             checks["expandedAccountSurvivesRefresh"] = ((Border)Cards.Children[0]).Child is Expander { IsExpanded: true };
             ((Expander)((Border)Cards.Children[0]).Child).IsExpanded = false;
         }
+        foreach (var card in Cards.Children.OfType<Border>()) if (card.Child is Expander expander) expander.IsExpanded = true;
+        await SettlePanelLayoutAsync();
+        checks["allExpandedPanelFitsOrScreenLimited"] = ScrollOnlyAtHeightLimit();
+        panelLayouts["allExpanded"] = PanelLayoutState();
+        Capture(System.IO.Path.Combine(directory, "all-expanded.png"));
+        foreach (var card in Cards.Children.OfType<Border>()) if (card.Child is Expander expander) expander.IsExpanded = false;
         HideClick(this, new RoutedEventArgs()); await Task.Delay(200);
         checks["collapsePreservesMiniWidget"] = !IsVisible && widget.Handle != 0;
         if (widget.OverflowAccounts > 0)
@@ -330,7 +343,7 @@ public partial class MainWindow : Window
             checks["emptySshTargetShowsGuidance"] = !await invalid.CheckConnectionAsync() && invalid.StatusText.Contains("SSH");
             invalid.Close();
         }
-        File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), JsonSerializer.Serialize(new { checks, docked }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(System.IO.Path.Combine(directory, "widget-check.json"), JsonSerializer.Serialize(new { checks, docked, panelLayouts }, new JsonSerializerOptions { WriteIndented = true }));
         return checks.Values.All(x => x);
     }
     private void Capture(string path)

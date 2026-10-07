@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+
+- Sized the detail panel to measured content, including every expanded account and wrapped text, instead of estimated per-account heights and a fixed 680-pixel cap.
+- Recomputed height on open, expand/collapse, refresh, and width changes; kept the panel within the available desktop work area.
+- Used scrolling only when the content exceeds the available screen height.
+- Added deterministic WPF layout checks for three/eight accounts, same-count refresh, reopen after manual resizing, narrow widths, and constrained-height overflow.
+
 ## 1.3.0
 
 - Added a connection check showing the actual signed-in account, plan, and returned quota before registration.

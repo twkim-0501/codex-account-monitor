@@ -2,9 +2,9 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
  Title="Codex Account Monitor" Width="410" Height="478" MinWidth="360" MinHeight="300" WindowStyle="None"
  ResizeMode="CanResize" Background="{StaticResource Canvas}" Foreground="{StaticResource Text}" FontFamily="Segoe UI, Malgun Gothic"
- WindowStartupLocation="Manual" ShowInTaskbar="False" Closing="OnClosing">
+ WindowStartupLocation="Manual" ShowInTaskbar="False" Closing="OnClosing" SizeChanged="OnPanelSizeChanged" Loaded="OnPanelLoaded">
  <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="5" CornerRadius="14" GlassFrameThickness="0"/></shell:WindowChrome.WindowChrome>
- <Border BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="20,18,20,14" CornerRadius="14">
+ <Border x:Name="PanelContent" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="20,18,20,14" CornerRadius="14">
   <Grid>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid Margin="4,0,0,18">
@@ -20,7 +20,7 @@
     <TextBlock x:Name="SummaryText" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Text="계정 연결 중"/>
     <Button Content="+ 계정" Click="AddClick" HorizontalAlignment="Right" Padding="8,5" Background="#EEEEF4"/>
    </Grid>
-   <ScrollViewer Grid.Row="2"><StackPanel x:Name="Cards"/></ScrollViewer>
+   <ScrollViewer x:Name="AccountScroll" Grid.Row="2"><StackPanel x:Name="Cards"/></ScrollViewer>
    <Grid Grid.Row="3" Margin="4,14,4,0">
     <TextBlock x:Name="FooterText" Text="60초마다 갱신" FontSize="10" Foreground="{StaticResource Muted}"/>
     <TextBlock Text="잔여 한도 기준" FontSize="10" Foreground="{StaticResource Muted}" HorizontalAlignment="Right"/>

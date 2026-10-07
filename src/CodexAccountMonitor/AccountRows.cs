@@ -12,7 +12,6 @@ namespace CodexAccountMonitor;
 public partial class MainWindow
 {
     private readonly HashSet<string> expandedAccounts = [];
-    private int rowCount = -1;
     private const string Ink = "#30323B", Soft = "#90919B", Warning = "#AE713B";
 
     private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate)
@@ -68,20 +67,9 @@ public partial class MainWindow
             details.Children.Add(Text(updated, 9, Soft, margin: new Thickness(0, 10, 0, 0)));
         }
         var expander = new Expander { Header = header, Content = details, IsExpanded = expandedAccounts.Contains(source.Id), ToolTip = "계정을 클릭하면 토큰과 초기화 시각을 펼칩니다" };
-        expander.Expanded += (_, _) => { expandedAccounts.Add(source.Id); SizePanel(); };
-        expander.Collapsed += (_, _) => { expandedAccounts.Remove(source.Id); SizePanel(); };
+        expander.Expanded += (_, _) => { expandedAccounts.Add(source.Id); QueuePanelSize(); };
+        expander.Collapsed += (_, _) => { expandedAccounts.Remove(source.Id); QueuePanelSize(); };
         return new Border { BorderBrush = Brush("#E8E8EE"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(0, 3, 0, 3), Child = expander };
-    }
-
-    private void SizePanel()
-    {
-        var count = settings.Sources.Count(x => x.Enabled);
-        var height = Math.Min(SystemParameters.WorkArea.Height - 24, Math.Clamp(164 + count * 86, 340, 520) + Math.Min(2, expandedAccounts.Count) * 180);
-        height = Math.Min(height, 680);
-        var delta = height - Height;
-        Height = height;
-        if (IsVisible) Top = Math.Max(SystemParameters.WorkArea.Top + 4, Top - delta);
-        rowCount = count;
     }
 
     private static StackPanel TokenMetric(string label, string value)

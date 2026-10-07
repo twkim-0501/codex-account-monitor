@@ -49,8 +49,9 @@ The monitor creates a separate local profile and uses Windows credential storage
 ## Read the widget
 
 - Percentages show **remaining quota**, not percentage used or exact remaining token counts. With several quota windows, the mini widget shows the lowest remaining percentage.
-- Up to three accounts appear in one row. For more accounts, `+N` opens the complete scrollable list. Connections are displayed in registration order, with a maximum of 50.
+- Up to three accounts appear in one row. For more accounts, `+N` opens the complete list. Connections are displayed in registration order, with a maximum of 50.
 - Click an account row to expand its token activity and reset times. Dates follow the server's daily bucket, not necessarily your local midnight.
+- The detail panel automatically fits its content when opened, expanded/collapsed, refreshed, or made narrower. Scrollbars appear only when the content exceeds the available screen height. Reopening restores the content height after manual shortening.
 - `이전` means the last successful reading is stale. `—` means unknown/unavailable, not zero. `제한` means the backend reports ordinary usage is blocked.
 - Free accounts are not filtered out. A Free account has been verified with this app, but availability and returned metrics depend on the account and Codex version. Quota periods are reported by Codex and are not hardcoded.
 - `−` and closing the window collapse the details. To quit, right-click the widget or notification icon and select **종료**.

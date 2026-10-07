@@ -69,11 +69,13 @@ Four or more connections keep the same single row; an overflow button opens the 
 
 ## 평소 사용하기
 
-상세 창은 미니 위젯 바로 위에 열리며 드래그와 크기 조절이 가능합니다. `−`와 창 닫기는 상세 창을 접습니다. 오른쪽 아래 알림 영역 아이콘으로도 상세 창을 열고 접을 수 있습니다. 미니 위젯이나 알림 영역 아이콘을 우클릭하면 메뉴가 열리며, 완전히 종료하려면 **종료**를 선택합니다.
+상세 창은 미니 위젯 바로 위에 열리며 **내용에 맞춰 높이를 자동으로 조절**합니다. 계정을 펼치거나 접을 때, 새로고침으로 내용이 바뀔 때, 창 너비를 바꿀 때도 높이를 맞춥니다. 창을 작게 줄였더라도 다시 열면 내용에 맞게 복구합니다. **화면에서 사용할 수 있는 높이를 넘을 때만 스크롤**이 생깁니다. 드래그와 너비 조절도 가능합니다.
+
+`−`와 창 닫기는 상세 창을 접습니다. 오른쪽 아래 알림 영역 아이콘으로도 상세 창을 열고 접을 수 있습니다. 미니 위젯이나 알림 영역 아이콘을 우클릭하면 메뉴가 열리며, 완전히 종료하려면 **종료**를 선택합니다.
 
 설정에서 갱신 간격(기본 60초), 상세 창을 항상 위에 표시, 잔여 한도 10% 이하 알림, 미니 위젯 표시·도킹, Windows 로그인 시 접힌 상태로 시작을 변경할 수 있습니다. 자동 시작은 기본적으로 꺼져 있습니다. 미니 위젯만 숨겼을 때는 알림 영역 우클릭 → **왼쪽 미니 위젯 표시**로 복구할 수 있습니다.
 
-미니 위젯은 **앞의 3개 연결을 여백 있는 한 줄**로 표시합니다. 검은 바탕을 그리지 않고 작업표시줄 배경이 비치며, 시스템의 밝은/어두운 테마에 맞게 글자색을 바꿉니다. 2개일 때는 폭이 줄고, 3개는 모두 표시하며, 4개부터는 **`+N` 버튼**을 붙입니다. 예를 들어 8개 연결이면 3개와 `+5`가 표시됩니다. 미니 위젯의 최대 폭은 340 논리 픽셀이며 계정 수에 따라 계속 넓어지지 않습니다. `+N`을 클릭하면 스크롤 가능한 전체 목록이 열립니다.
+미니 위젯은 **앞의 3개 연결을 여백 있는 한 줄**로 표시합니다. 검은 바탕을 그리지 않고 작업표시줄 배경이 비치며, 시스템의 밝은/어두운 테마에 맞게 글자색을 바꿉니다. 2개일 때는 폭이 줄고, 3개는 모두 표시하며, 4개부터는 **`+N` 버튼**을 붙입니다. 예를 들어 8개 연결이면 3개와 `+5`가 표시됩니다. 미니 위젯의 최대 폭은 340 논리 픽셀이며 계정 수에 따라 계속 넓어지지 않습니다. `+N`을 클릭하면 전체 목록이 열리고, 화면 높이를 넘는 경우 스크롤할 수 있습니다.
 
 계정에 한도 창이 여러 개 있으면 그중 가장 낮은 **잔여 비율**을 표시합니다. 이전 조회값에는 `이전`, 조회할 수 없는 값에는 `—`, 사용 제한에는 `제한`을 표시합니다. 계정 편집의 **작업표시줄 이름**으로 최대 6글자의 짧은 이름을 지정할 수 있습니다. 비워두면 이름을 줄여 표시하며 끝의 계정 번호는 유지합니다(`research02` → `rese02`).
 
@@ -97,6 +99,7 @@ Four or more connections keep the same single row; an overflow button opens the 
 | SSH 연결 확인이 실패해요 | 터미널에서 `ssh research-server`를 실행해 최초 호스트 키 확인과 키 인증을 마칩니다. 서버의 `codex --version`과 `codex login status`도 확인합니다. |
 | 서버의 Codex를 찾지 못해요 | 서버 로그인 셸의 PATH를 확인하거나 고급 설정의 **Codex 실행파일**에 서버의 실제 실행파일 절대 경로를 입력합니다. |
 | 창을 닫아도 앱이 남아요 | 창 닫기는 접기입니다. 완전 종료는 미니 위젯 또는 알림 영역 우클릭 → **종료**입니다. |
+| 상세 창에 스크롤이 생겨요 | v1.3.1부터 내용에 맞춰 자동으로 높이를 조절합니다. 모두 펼친 내용이 화면 높이를 넘는 경우에는 스크롤이 필요합니다. 이전 버전이면 최신 릴리스로 업데이트하세요. |
 | 실행 파일이 차단되거나 경고가 떠요 | 현재 릴리스에는 코드 서명이 없습니다. 이 저장소 릴리스에서 받은 파일인지 확인하고 `SHA256SUMS.txt`와 해시를 비교할 수 있습니다. |
 
 ## 업데이트와 삭제
@@ -174,13 +177,16 @@ UI preview and layout verification:
 # Native widget check on an interactive Windows desktop:
 .\dist\CodexAccountMonitor.exe --demo --widget-check C:\Temp\monitor-widget-check
 .\dist\CodexAccountMonitor.exe --demo --demo-accounts 8 --widget-check C:\Temp\monitor-overflow-check
+# Content sizing checks with fictional accounts; no interactive taskbar required:
+.\dist\CodexAccountMonitor.exe --layout-check C:\Temp\monitor-layout-check
+.\dist\CodexAccountMonitor.exe --demo-accounts 8 --layout-check C:\Temp\monitor-layout-eight
 ```
 
 `--open` opens the detail panel immediately; normal launch starts with the mini widget. `--demo-accounts 1..12` selects the number of fictional demo connections (default: 3). `--settings <absolute-path>` loads an alternative settings file for controlled checks. `--live-screenshot <absolute-path>` queries configured accounts, saves the rendered details plus light/dark mini previews, and exits. **Live screenshots are private data and should not be committed.** Demo/screenshot modes do not save connection changes or enable startup registration.
 
-The deterministic checks cover multiple quota buckets, nullable data, account/workspace identity, invalid timestamps, backend-blocked states, safe SSH command construction, out-of-order JSON-RPC responses, RPC errors, and cancellation. CI builds the widget and checks those behaviors. Version tags build a self-contained executable and publish a GitHub release.
+The deterministic checks cover multiple quota buckets, nullable data, account/workspace identity, invalid timestamps, backend-blocked states, safe SSH command construction, out-of-order JSON-RPC responses, RPC errors, and cancellation. `--layout-check` uses only fictional accounts and verifies expand/collapse, refresh with an unchanged account count, reopen after manual shortening, wrapped text at narrow widths, and overflow in a constrained viewport. CI runs those checks with three and eight accounts, builds the widget, and renders demo previews. Version tags build a self-contained executable and publish a GitHub release.
 
-The local native-widget check compares visible text pixels with the rendered surface and verifies pointer hit testing, menu/detail handlers, collapse/close behavior, overlay mode, the three-account width bound, full-list overflow, and expanded-row persistence across refresh. Live mode also checks the account-connection form's identity result and missing-SSH-target guidance. It records parent/style diagnostics and cropped widget images. Test clicks send messages only to this process's own widget; they do not inject physical mouse input. Verified on the development PC: an actual Explorer child, no topmost style when docked, an 8-account demo (15 checks), three real local/SSH accounts including Free (16 checks), and 17 parser/transport checks. Physical mouse use, Explorer restart, full-screen applications, and multiple-monitor/DPI changes still need separate manual verification. CI renders 3- and 8-account previews including the fictional SSH registration form without requiring an interactive Explorer taskbar.
+The local native-widget check compares visible text pixels with the rendered surface and verifies pointer hit testing, menu/detail handlers, collapse/close behavior, overlay mode, the three-account width bound, full-list overflow, expanded-row persistence across refresh, and content-sized panel height. Live mode also checks the account-connection form's identity result and missing-SSH-target guidance. It records parent/style diagnostics, panel/viewport measurements, and cropped widget images. Test clicks send messages only to this process's own widget; they do not inject physical mouse input. Verified on the development PC: an actual Explorer child, no topmost style when docked, an 8-account demo (17 checks), three real local/SSH accounts including Free (18 checks), 12 layout checks each with three/eight fictional accounts, and 17 parser/transport checks. All three real accounts expanded without scrolling on the development display; eight fully expanded demo accounts used scrolling at the screen limit. Physical mouse use, Explorer restart, full-screen applications, and multiple-monitor/DPI changes still need separate manual verification. CI renders 3- and 8-account previews including the fictional SSH registration form without requiring an interactive Explorer taskbar.
 
 </details>
 
