@@ -4,7 +4,7 @@
 
 **[⬇ Windows 실행 파일 다운로드](https://github.com/twkim-0501/codex-account-monitor/releases/latest/download/CodexAccountMonitor.exe)** · [릴리스와 ZIP](https://github.com/twkim-0501/codex-account-monitor/releases/latest) · [English](docs/USAGE.en.md)
 
-Windows 10/11 **x64(64비트)**에서 사용합니다. 실행 파일 하나로 동작하며, 모니터를 위해 .NET·Node.js를 따로 설치하거나 소스를 빌드할 필요가 없습니다.
+Windows 10/11 **x64(64비트)** 환경에서 사용합니다. 실행 파일 하나로 동작하며, 모니터를 위해 .NET·Node.js를 따로 설치하거나 소스를 빌드할 필요가 없습니다.
 
 ## 1. 설치하고 첫 계정 보기
 
