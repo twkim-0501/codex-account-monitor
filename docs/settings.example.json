@@ -5,6 +5,10 @@
   "startWithWindows": false,
   "showMiniWidget": true,
   "dockMiniWidget": true,
+  "watchPublicResets": true,
+  "resetAlertsEnabled": true,
+  "hintAlertsEnabled": true,
+  "creditExpiryAlertsEnabled": true,
   "sources": [
     { "id": "local", "name": "Personal", "shortName": "My", "kind": "local", "enabled": true },
     { "id": "remote", "name": "Research", "shortName": "Lab", "kind": "ssh", "sshHost": "research-server", "enabled": true }

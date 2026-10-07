@@ -20,7 +20,7 @@
     <TextBlock x:Name="SummaryText" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Text="계정 연결 중"/>
     <Button Content="+ 계정" Click="AddClick" HorizontalAlignment="Right" Padding="8,5" Background="#EEEEF4"/>
    </Grid>
-   <ScrollViewer x:Name="AccountScroll" Grid.Row="2"><StackPanel x:Name="Cards"/></ScrollViewer>
+   <ScrollViewer x:Name="AccountScroll" Grid.Row="2"><StackPanel><StackPanel x:Name="Cards"/><StackPanel x:Name="ResetPanel" Margin="0,12,0,0"/></StackPanel></ScrollViewer>
    <Grid Grid.Row="3" Margin="4,14,4,0">
     <TextBlock x:Name="FooterText" Text="60초마다 갱신" FontSize="10" Foreground="{StaticResource Muted}"/>
     <TextBlock Text="잔여 한도 기준" FontSize="10" Foreground="{StaticResource Muted}" HorizontalAlignment="Right"/>

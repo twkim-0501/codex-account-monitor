@@ -24,6 +24,12 @@ public partial class MainWindow
         var identity = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         identity.Children.Add(Text(source.Name, 14, Ink, FontWeights.SemiBold));
         identity.Children.Add(Text($"{(data?.Plan ?? "Codex").ToUpperInvariant()} · {(source.Kind == "ssh" ? "서버" : "로컬")}", 10, Soft, margin: new Thickness(0, 4, 0, 0)));
+        if (data?.ResetCredits is { } available)
+        {
+            var nearest = data.ResetCreditDetails?.Where(c => c.IsAvailable && c.ExpiresAt > DateTimeOffset.UtcNow).OrderBy(c => c.ExpiresAt).FirstOrDefault();
+            identity.Children.Add(Text($"초기화권 {available}개" + (available > 0 && nearest?.ExpiresAt is { } expiry && expiry - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3) ? $" · {ResetJudgment.KoreanTime(expiry)} 만료" : ""), 10,
+                nearest?.ExpiresAt - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3) ? Warning : Soft, margin: new Thickness(0, 4, 4, 0)));
+        }
         var state = errors.TryGetValue(source.Id, out var error) ? error
             : data is not null && !healthy.Contains(source.Id) ? "이전 조회값 · 갱신 확인 중"
             : data?.OrdinaryUsageAllowed == false ? "현재 사용 제한" : null;
@@ -54,6 +60,7 @@ public partial class MainWindow
                 details.Children.Add(Text(MetricFormatting.Reset(quota, DateTimeOffset.Now), 10, Soft, margin: new Thickness(0, 3, 0, 8)));
             }
             if (data.Windows.Count == 0) details.Children.Add(Text(data.LimitsNote ?? "사용 한도 미제공", 11, Soft));
+            AddCreditDetails(details, data);
             var tokens = new Grid { Margin = new Thickness(0, 10, 0, 4) };
             tokens.ColumnDefinitions.Add(new ColumnDefinition()); tokens.ColumnDefinitions.Add(new ColumnDefinition());
             var latest = data.Daily?.LastOrDefault();
@@ -63,13 +70,36 @@ public partial class MainWindow
             if (data.UsageNote is not null) details.Children.Add(Text(data.UsageNote, 10, Soft));
             if (data.Daily is { Count: > 1 }) details.Children.Add(Sparkline(data.Daily.TakeLast(14).ToArray()));
             var updated = $"갱신 {data.UpdatedAt.ToLocalTime():MM/dd HH:mm}";
-            if (data.ResetCredits is { } credits) updated += $" · 리셋 {credits}회";
             details.Children.Add(Text(updated, 9, Soft, margin: new Thickness(0, 10, 0, 0)));
         }
         var expander = new Expander { Header = header, Content = details, IsExpanded = expandedAccounts.Contains(source.Id), ToolTip = "계정을 클릭하면 토큰과 초기화 시각을 펼칩니다" };
         expander.Expanded += (_, _) => { expandedAccounts.Add(source.Id); QueuePanelSize(); };
         expander.Collapsed += (_, _) => { expandedAccounts.Remove(source.Id); QueuePanelSize(); };
         return new Border { BorderBrush = Brush("#E8E8EE"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(0, 3, 0, 3), Child = expander };
+    }
+
+    private static void AddCreditDetails(StackPanel details, AccountSnapshot data)
+    {
+        var summary = Text(data.ResetCredits is { } count ? $"초기화권 {count}개" : "초기화권 개수 미제공", 11, Ink, FontWeights.Medium, new Thickness(0, 10, 0, 4));
+        summary.ToolTip = "보유 개수는 서버 조회값입니다. 초기화권 사용 뒤의 정기 리셋 시각은 위 한도에 표시된 새 조회값을 따릅니다.";
+        details.Children.Add(summary);
+        if (data.ResetCreditDetails is null)
+        {
+            if (data.ResetCredits != 0) details.Children.Add(Text("개별 만료일 미제공 · 유효기간을 추정하지 않습니다.", 10, Soft));
+            return;
+        }
+        var credits = data.ResetCreditDetails.Where(c => c.IsAvailable).OrderBy(c => c.ExpiresAt ?? DateTimeOffset.MaxValue).ToArray();
+        foreach (var credit in credits)
+        {
+            var expiry = credit.ExpiresAt;
+            var label = expiry is null ? "만료일 미제공" : $"{ResetJudgment.KoreanTime(expiry.Value)} 만료";
+            if (expiry <= DateTimeOffset.UtcNow) label += " · 만료 시각 지남, 갱신 확인";
+            var row = Text(label, 10, expiry - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3) ? Warning : Soft, margin: new Thickness(0, 3, 0, 0));
+            row.ToolTip = credit.GrantedAt is { } granted ? "지급 " + ResetJudgment.KoreanTime(granted) : "지급 시각 미제공";
+            details.Children.Add(row);
+        }
+        if (data.ResetCredits > credits.Length) details.Children.Add(Text("개별 상세는 일부만 제공됐습니다. 표시 개수가 전체 보유 개수입니다.", 10, Soft));
+        else if (credits.Length == 0 && data.ResetCredits != 0) details.Children.Add(Text("현재 응답에는 사용 가능한 초기화권 상세가 없습니다.", 10, Soft));
     }
 
     private static StackPanel TokenMetric(string label, string value)

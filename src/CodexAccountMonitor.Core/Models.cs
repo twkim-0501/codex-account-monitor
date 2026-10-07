@@ -10,6 +10,10 @@ public sealed class MonitorSettings
     public bool StartWithWindows { get; set; }
     public bool ShowMiniWidget { get; set; } = true;
     public bool DockMiniWidget { get; set; } = true;
+    public bool WatchPublicResets { get; set; } = true;
+    public bool ResetAlertsEnabled { get; set; } = true;
+    public bool HintAlertsEnabled { get; set; } = true;
+    public bool CreditExpiryAlertsEnabled { get; set; } = true;
     public List<AccountSource> Sources { get; set; } = [];
 }
 
@@ -39,6 +43,10 @@ public sealed record QuotaWindow(string Bucket, string Label, double UsedPercent
 }
 
 public sealed record DailyTokens(string Date, long Tokens);
+public sealed record ResetCredit(string Id, string ResetType, string Status, DateTimeOffset? GrantedAt, DateTimeOffset? ExpiresAt, string? Title)
+{
+    [JsonIgnore] public bool IsAvailable => Status.Equals("available", StringComparison.OrdinalIgnoreCase);
+}
 
 public sealed class AccountSnapshot
 {
@@ -53,6 +61,7 @@ public sealed class AccountSnapshot
     public long? LifetimeTokens { get; set; }
     public List<DailyTokens>? Daily { get; set; }
     public int? ResetCredits { get; set; }
+    public List<ResetCredit>? ResetCreditDetails { get; set; }
     public int? StreakDays { get; set; }
     public string? UsageNote { get; set; }
     public string? LimitsNote { get; set; }

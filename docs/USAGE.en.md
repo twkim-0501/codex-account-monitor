@@ -1,15 +1,19 @@
 # Codex Account Monitor: getting started
 
-[한국어 README](../README.md) · [Download the latest release](https://github.com/twkim-0501/codex-account-monitor/releases/latest)
+[한국어 README](../README.md) · [Download the Windows executable](https://github.com/twkim-0501/codex-account-monitor/releases/latest/download/CodexAccountMonitor.exe) · [Release and ZIP](https://github.com/twkim-0501/codex-account-monitor/releases/latest)
 
-A Windows taskbar widget for checking remaining Codex quota and token activity across local and SSH accounts. Inspired by [pjhun0412's Codex Pulse](https://github.com/pjhun0412/codex-pulse), adapted and rewritten in C#/WPF using OpenAI Codex. See the [full credits](../README.md#출처와-제작-방식--credits).
+A Windows taskbar widget for checking remaining Codex quota and token activity across local and SSH accounts. Inspired by [pjhun0412's Codex Pulse](https://github.com/pjhun0412/codex-pulse), adapted and rewritten in C#/WPF using OpenAI Codex. See the [full credits](CREDITS.md).
 
 SSH servers need bash and Codex installed; Linux servers have been verified.
 
+Version 1.4 adds reset-credit counts and individual expiry dates to the existing account details. Version 1.4.2 uses a compact **다음 특별 리셋** card with 24h/48h circular probability gauges, a short evidence status, and expected timing. Percentages are current, experimental community estimates from [CodexReset](https://codexreset.org/), separate from the app's judgment of Tibo's posts. **근거 보기** expands a brief explanation and up to three key reasons with optional source links. Failed or stale probability collection shows a dash; poll vote share is never used as reset probability. Completed one-off signals and expired hints are removed; ongoing conditional promises can remain.
+
+Public sources are checked every ten minutes without an API key. Coverage comes from community collectors and X's public embed cards and can be delayed or incomplete. Hints are never treated as guaranteed resets or calibrated probabilities. New-signal, quota-recovery/reset-time-change, credit-increase, and three-day/24-hour credit-expiry notifications can be disabled in settings. Monitoring does not run model turns or redeem credits. See the [implementation and judgment rules](RESET-MONITOR.md) (Korean).
+
 ## Install and start
 
-1. Use Windows 10/11 x64. Install and sign in to the [Codex app or CLI](https://learn.chatgpt.com/docs/quickstart).
-2. Open the latest release and download **CodexAccountMonitor.exe** from **Assets**. The `Source code` archives are for developers. A ZIP containing the executable and documentation is also available.
+1. Use Windows 10/11 x64. Install the [official Windows desktop app](https://learn.chatgpt.com/docs/windows/windows-app) or [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), and sign in with your ChatGPT account. If you already use Codex on this PC, skip this preparation step.
+2. [Download **CodexAccountMonitor.exe** directly](https://github.com/twkim-0501/codex-account-monitor/releases/latest/download/CodexAccountMonitor.exe). The `Source code` archives and `Code → Download ZIP` are for developers. A ZIP containing the executable and documentation is available on the release page.
 3. Keep the executable in a folder of your choice and run it. The .NET runtime is included; no SDK, installer, or administrator access is required.
 4. On first launch, the detail panel opens and reads the current PC's Codex login. For a login-required message, sign in through Codex and click `↻`.
 5. Click `−` to collapse the panel. The mini widget continues refreshing. If it is missing, look in the notification area, including the hidden icons menu. Right-click the icon and enable **왼쪽 미니 위젯 표시** (show mini widget).

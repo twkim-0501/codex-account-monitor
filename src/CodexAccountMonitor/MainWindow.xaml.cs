@@ -57,13 +57,14 @@ public partial class MainWindow : Window
         Top = Math.Max(area.Top + 12, area.Bottom - Height - 12);
         if (demo) LoadDemo(demoAccounts);
         else foreach (var snapshot in store.LoadCache()) snapshots[snapshot.SourceId] = snapshot;
+        InitializeResetMonitor();
         if (screenshotPath is null && !layoutCheck)
         {
             tray = new Forms.NotifyIcon { Icon = CreateIcon(), Text = "Codex Account Monitor", Visible = true };
             tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Dispatcher.Invoke(ToggleWindow); };
             var menu = new Forms.ContextMenuStrip();
             menu.Items.Add("열기 / 숨기기", null, (_, _) => Dispatcher.Invoke(ToggleWindow));
-            menu.Items.Add("새로고침", null, (_, _) => Dispatcher.Invoke(async () => await RefreshAsync()));
+            menu.Items.Add("새로고침", null, (_, _) => Dispatcher.Invoke(() => RefreshClick(this, new RoutedEventArgs())));
             menu.Items.Add("설정", null, (_, _) => Dispatcher.Invoke(() => SettingsClick(this, new RoutedEventArgs())));
             var miniMenu = new Forms.ToolStripMenuItem("왼쪽 미니 위젯 표시") { Checked = settings.ShowMiniWidget, CheckOnClick = true };
             miniMenu.Click += (_, _) => Dispatcher.Invoke(() =>
@@ -97,7 +98,7 @@ public partial class MainWindow : Window
                 await ExitAsync();
             };
         }
-        else if (!layoutCheck) { timer.Start(); _ = RefreshAsync(); }
+        else if (!layoutCheck) { timer.Start(); resetTimer.Start(); _ = RefreshAsync(); }
     }
 
     private void LoadDemo(int count)
@@ -116,6 +117,8 @@ public partial class MainWindow : Window
     {
         SourceId = id, Email = email, AccountId = accountId, Plan = "pro", AuthType = "chatgpt", UpdatedAt = DateTimeOffset.UtcNow,
         LifetimeTokens = lifetimeTokens, ResetCredits = 2, OrdinaryUsageAllowed = true,
+        ResetCreditDetails = [new("demo-credit-a", "codexRateLimits", "available", DateTimeOffset.UtcNow.AddDays(-28), DateTimeOffset.UtcNow.AddHours(18), "초기화권"),
+            new("demo-credit-b", "codexRateLimits", "available", DateTimeOffset.UtcNow.AddDays(-12), DateTimeOffset.UtcNow.AddDays(18), "초기화권")],
         Windows = [new("codex", "Codex", hourly, 300, DateTimeOffset.UtcNow.AddHours(3)), new("codex", "Codex", weekly, 10080, DateTimeOffset.UtcNow.AddDays(5))],
         Daily = Enumerable.Range(0, 7).Select(i => new DailyTokens(DateTime.UtcNow.Date.AddDays(i - 6).ToString("yyyy-MM-dd"), latest * (i + 2) / 8)).ToList()
     };
@@ -127,6 +130,7 @@ public partial class MainWindow : Window
         FooterText.Text = "조회 중…";
         try
         {
+            var publicTask = RefreshPublicResetsAsync();
             var enabled = settings.Sources.Where(x => x.Enabled).ToArray();
             using var parallelism = new SemaphoreSlim(3);
             var tasks = enabled.Select(async source =>
@@ -138,16 +142,19 @@ public partial class MainWindow : Window
                     using var timeout = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
                     timeout.CancelAfter(TimeSpan.FromSeconds(35));
                     var snapshot = await connection.ReadAsync(timeout.Token);
+                    var previous = healthy.Contains(source.Id) ? snapshots.GetValueOrDefault(source.Id) : null;
                     snapshots[source.Id] = snapshot;
                     healthy.Add(source.Id);
                     errors.Remove(source.Id);
                     CheckAlert(source, snapshot);
+                    CheckResetNotices(source, previous, snapshot);
                 }
                 catch (OperationCanceledException) { healthy.Remove(source.Id); errors[source.Id] = "조회 시간 초과 · 연결 확인"; }
                 catch (Exception error) { healthy.Remove(source.Id); errors[source.Id] = SafeError(error); }
                 finally { parallelism.Release(); RenderCards(); }
             });
             await Task.WhenAll(tasks);
+            await publicTask;
             if (screenshotPath is null)
                 try { store.SaveCache(snapshots.Values.Where(x => settings.Sources.Any(s => s.Id == x.SourceId))); } catch (IOException) { FooterText.Text = "캐시 저장 실패 · 현재 조회는 정상"; }
         }
@@ -194,7 +201,9 @@ public partial class MainWindow : Window
             Cards.Children.Add(BuildCard(source, snapshot, duplicate));
         }
         if (sources.Length == 0) Cards.Children.Add(Text("+ 계정을 눌러 로컬 또는 SSH 계정을 추가하세요.", 12, "#90919B"));
+        RenderResetPanel();
         SizePanel();
+        QueuePanelSize();
         if (tray is not null)
         {
             var tooltip = string.Join(" | ", sources.Take(3).Select(source => snapshots.TryGetValue(source.Id, out var data) && data.Windows.Count > 0
@@ -228,12 +237,17 @@ public partial class MainWindow : Window
         if (!editor.Deleted && editor.Source is { } changed) settings.Sources.Add(changed);
         store.Save(settings); RenderCards(); await RefreshAsync();
     }
-    private async void RefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync();
+    private async void RefreshClick(object sender, RoutedEventArgs e)
+    {
+        if (resetState.Outlook.CheckedAt is not { } checkedAt || DateTimeOffset.UtcNow - checkedAt >= TimeSpan.FromMinutes(1)) nextPublicCheck = DateTimeOffset.MinValue;
+        await RefreshAsync();
+    }
     private void HideClick(object sender, RoutedEventArgs e) => Hide();
     private void HelpClick(object sender, RoutedEventArgs e) => new HelpWindow { Owner = this }.ShowDialog();
     private void SettingsClick(object sender, RoutedEventArgs e)
     {
         if (!IsVisible) ShowDetails();
+        var previouslyWatched = settings.WatchPublicResets;
         var editor = new PreferencesWindow(settings) { Owner = this };
         if (editor.ShowDialog() != true || demo) return;
         Topmost = settings.AlwaysOnTop;
@@ -241,6 +255,9 @@ public partial class MainWindow : Window
         store.Save(settings);
         ApplyStartup();
         miniWidget?.Configure(settings.ShowMiniWidget, settings.DockMiniWidget);
+        if (settings.WatchPublicResets && !previouslyWatched) nextPublicCheck = DateTimeOffset.MinValue;
+        RenderCards();
+        _ = RefreshAsync();
     }
     private void ApplyStartup()
     {
@@ -268,9 +285,10 @@ public partial class MainWindow : Window
     internal async Task ExitAsync(int exitCode = 0)
     {
         if (exiting) return;
-        exiting = true; timer.Stop(); lifetime.Cancel();
-        while (refreshing) await Task.Delay(50);
+        exiting = true; timer.Stop(); resetTimer.Stop(); noticeTimer.Stop(); lifetime.Cancel();
+        while (refreshing || publicRefreshing) await Task.Delay(50);
         foreach (var connection in connections.Values) await connection.DisposeAsync();
+        resetFeed.Dispose();
         miniWidget?.Dispose(); tray?.Dispose(); lifetime.Dispose(); Close(); Application.Current.Shutdown(exitCode);
     }
     internal async Task<bool> RunWidgetCheckAsync(string directory)
@@ -295,6 +313,16 @@ public partial class MainWindow : Window
         checks["allAccountsListed"] = Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
         checks["threeAccountsAndOverflowBounded"] = widget.VisibleAccounts == Math.Min(3, settings.Sources.Count(x => x.Enabled)) && widget.OverflowAccounts == Math.Max(0, settings.Sources.Count(x => x.Enabled) - 3) && widget.ScreenBounds.Width / (GetDpiForWidget(widget.Handle) / 96d) <= 340.5;
         UpdateLayout(); Capture(System.IO.Path.Combine(directory, "details.png"));
+        if (ResetPanel.Children.Count > 0)
+        {
+            CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
+            var forecastDetails = (Expander)((Border)ResetPanel.Children[0]).Child;
+            forecastDetails.IsExpanded = true;
+            await SettlePanelLayoutAsync();
+            CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-reasons.png"));
+            forecastDetails.IsExpanded = false;
+            await SettlePanelLayoutAsync();
+        }
         checks["collapsedPanelFitsOrScreenLimited"] = ScrollOnlyAtHeightLimit();
         panelLayouts["collapsed"] = PanelLayoutState();
         if (Cards.Children.Count > 0 && ((Border)Cards.Children[0]).Child is Expander first)

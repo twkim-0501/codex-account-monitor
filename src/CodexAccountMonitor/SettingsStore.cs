@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using CodexAccountMonitor.Core;
 
@@ -35,6 +36,22 @@ public sealed class SettingsStore
         catch (Exception error) when (error is JsonException or IOException) { return []; }
     }
     public void SaveCache(IEnumerable<AccountSnapshot> data) => Write(CachePath, data);
+    public ResetMonitorState LoadResetState()
+    {
+        try
+        {
+            var path = Path.Combine(DirectoryPath, "reset-state.json");
+            if (!File.Exists(path) || new FileInfo(path).Length > 2_000_000) return new();
+            var state = JsonSerializer.Deserialize<ResetMonitorState>(File.ReadAllText(path), Options);
+            if (state?.Outlook is null || state.Outlook.Signals is null || state.Outlook.Completions is null || state.Delivered is null) return new();
+            state.Outlook.Signals = state.Outlook.Signals.Take(4).ToList();
+            state.Outlook.Completions = state.Outlook.Completions.Take(2).ToList();
+            state.Outlook.CurrentContext = (state.Outlook.CurrentContext ?? []).Take(3).ToList();
+            return state;
+        }
+        catch (Exception error) when (error is JsonException or IOException) { return new(); }
+    }
+    public void SaveResetState(ResetMonitorState state) => Write(Path.Combine(DirectoryPath, "reset-state.json"), state);
     private static void Write<T>(string path, T data)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

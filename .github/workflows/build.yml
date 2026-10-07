@@ -64,13 +64,15 @@ jobs:
           Copy-Item docs dist\docs -Recurse
           Get-FileHash dist\CodexAccountMonitor.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLowerInvariant())  CodexAccountMonitor.exe" } | Set-Content dist\SHA256SUMS.txt
           Compress-Archive -Path dist\CodexAccountMonitor.exe,dist\README.md,dist\CHANGELOG.md,dist\LICENSE,dist\SHA256SUMS.txt,dist\docs -DestinationPath dist\CodexAccountMonitor-win-x64.zip
-          @'
-          상세 창 높이가 실제 계정 내용에 맞춰 자동으로 늘어나고 줄어듭니다. 계정을 펼치거나 접을 때, 같은 계정 수로 새로고침할 때, 창 너비를 바꿀 때와 다시 열 때 높이를 맞춥니다.
-
-          기존의 680 높이 제한을 제거하여 화면에 공간이 있으면 전체 내용을 보여줍니다. 화면에서 사용할 수 있는 높이를 넘을 때만 스크롤합니다. 3개·8개 예시 계정으로 창 높이와 스크롤을 자동 검증합니다. 연결 설정은 유지됩니다.
-
-          Download CodexAccountMonitor.exe from Assets and run it on Windows 10/11 x64. The .NET runtime is included; Codex app/CLI and an existing login are required. Quit the running monitor before replacing its executable. The ZIP also includes documentation. No code-signing certificate is included.
-
-          Original concept/workflow: https://github.com/pjhun0412/codex-pulse . Adapted and rewritten in C#/WPF using OpenAI Codex. Full credits are in README.
-          '@ | Set-Content dist\release-notes.md -Encoding utf8
+          $notesPath = "docs/releases/$env:GITHUB_REF_NAME.md"
+          if (Test-Path -LiteralPath $notesPath) {
+            Copy-Item -LiteralPath $notesPath -Destination dist\release-notes.md
+          } else {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+            $pattern = '(?ms)^##\s+' + [regex]::Escape($version) + '\s*\r?\n(.*?)(?=^##\s|\z)'
+            $section = [regex]::Match((Get-Content CHANGELOG.md -Raw), $pattern)
+            if (!$section.Success) { throw "Missing release notes and changelog section for $env:GITHUB_REF_NAME" }
+            $installation = "[Download CodexAccountMonitor.exe](https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/CodexAccountMonitor.exe). Windows 10/11 x64; .NET included. See README for setup. Quit before replacing the executable; connections remain saved separately."
+            ($installation + "`n`n" + $section.Groups[1].Value.Trim()) | Set-Content dist\release-notes.md -Encoding utf8
+          }
           gh release create "$env:GITHUB_REF_NAME" dist\CodexAccountMonitor.exe dist\CodexAccountMonitor-win-x64.zip dist\SHA256SUMS.txt --title "Codex Account Monitor $env:GITHUB_REF_NAME" --notes-file dist\release-notes.md

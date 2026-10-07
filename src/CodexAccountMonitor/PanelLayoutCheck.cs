@@ -6,7 +6,10 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using CodexAccountMonitor.Core;
 
 namespace CodexAccountMonitor;
 
@@ -22,13 +25,23 @@ public partial class MainWindow
         var collapsedHeight = ActualHeight;
         checks["collapsedRowsFitOrReachScreenLimit"] = ScrollOnlyAtHeightLimit();
         layouts["collapsed"] = PanelLayoutState();
+        var forecastCard = (Expander)((Border)ResetPanel.Children[0]).Child;
+        var visibleHeader = (StackPanel)forecastCard.Header;
+        checks["twoHorizonProbabilitiesVisibleWithoutOpeningLinks"] = RenderedProbabilityAvailable &&
+            VisualDescendants<TextBlock>(visibleHeader).Count(t => t.Text.EndsWith('%')) == 2 && !forecastCard.IsExpanded;
+        checks["defaultForecastCardIsCompact"] = visibleHeader.ActualHeight <= 235 &&
+            !VisualDescendants<TextBlock>(visibleHeader).Any(t => t.Text == RenderedForecast?.Explanation);
+        Capture(System.IO.Path.Combine(directory, "forecast-visible.png"));
+        CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
 
         var first = (Expander)((Border)Cards.Children[0]).Child;
         var originalBottom = Top + ActualHeight;
         first.IsExpanded = true;
         await SettlePanelLayoutAsync();
         checks["expandingContentGrowsWindow"] = ActualHeight > collapsedHeight || ActualHeight >= PanelHeightLimit - 1.5;
-        checks["expansionKeepsBottomAnchor"] = Math.Abs(Top + ActualHeight - originalBottom) <= 1.5;
+        var area = SystemParameters.WorkArea;
+        var expectedTop = Math.Clamp(originalBottom - ActualHeight, area.Top + 8, Math.Max(area.Top + 8, area.Bottom - ActualHeight - 8));
+        checks["expansionKeepsBottomAnchorUnlessScreenClamped"] = Math.Abs(Top - expectedTop) <= 1.5;
         checks["expandedContentFitsOrReachesScreenLimit"] = ScrollOnlyAtHeightLimit();
         layouts["firstExpanded"] = PanelLayoutState();
 
@@ -62,6 +75,37 @@ public partial class MainWindow
         layouts["allExpanded"] = PanelLayoutState();
         Capture(System.IO.Path.Combine(directory, "all-expanded.png"));
 
+        foreach (Border card in Cards.Children) ((Expander)card.Child).IsExpanded = false;
+        var resetExpander = (Expander)((Border)ResetPanel.Children[0]).Child;
+        resetExpander.IsExpanded = true;
+        await SettlePanelLayoutAsync();
+        checks["resetEvidenceFitsOrReachesScreenLimit"] = ScrollOnlyAtHeightLimit();
+        RenderCards();
+        await SettlePanelLayoutAsync();
+        checks["resetExpansionSurvivesRefresh"] = ((Expander)((Border)ResetPanel.Children[0]).Child).IsExpanded;
+        var localEvidence = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Content;
+        checks["briefReasonsAndOptionalLinksInsideApp"] = VisualDescendants<TextBlock>(localEvidence).Any(t => t.Text.Contains("리셋 선택지")) &&
+            VisualDescendants<Button>(localEvidence).Any(b => (string)b.Content == "원문 ↗") && !VisualDescendants<TextBox>(localEvidence).Any();
+        var originalCommunity = resetState.Outlook.CommunityForecast;
+        resetState.Outlook.CommunityForecast = originalCommunity! with { FetchedAt = DateTimeOffset.UtcNow.AddHours(-1) };
+        RenderCards(); await SettlePanelLayoutAsync();
+        var staleHeader = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Header;
+        checks["staleProbabilitiesAreSuppressedInUi"] = !RenderedProbabilityAvailable && !VisualDescendants<TextBlock>(staleHeader).Any(t => t.Text.EndsWith('%'));
+        resetState.Outlook.CommunityForecast = originalCommunity;
+        var originalSignals = resetState.Outlook.Signals;
+        resetState.Outlook.Signals = originalSignals.Select(s => s.Poll is not null ? s with { Poll = s.Poll with { Choices = [new("good day", 76), new("needs a reset", 24)] } } : s).ToList();
+        RenderCards(); await SettlePanelLayoutAsync();
+        checks["reversedPollUpdatesForecastInUi"] = RenderedForecast?.State == ResetForecastState.Weak;
+        resetState.Outlook.Signals = originalSignals;
+        RenderCards(); await SettlePanelLayoutAsync();
+        Capture(System.IO.Path.Combine(directory, "reset-outlook.png"));
+        CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-reasons.png"));
+        ((Expander)((Border)Cards.Children[0]).Child).IsExpanded = true;
+        await SettlePanelLayoutAsync();
+        Capture(System.IO.Path.Combine(directory, "reset-and-credit.png"));
+        ((Expander)((Border)ResetPanel.Children[0]).Child).IsExpanded = false;
+        foreach (Border card in Cards.Children) ((Expander)card.Child).IsExpanded = true;
+
         // A short viewport exercises overflow even on a large development display.
         MaxHeight = Math.Max(MinHeight, Math.Min(460, SystemParameters.WorkArea.Height - 16));
         SizePanel();
@@ -75,6 +119,25 @@ public partial class MainWindow
     }
 
     private async Task SettlePanelLayoutAsync() => await Dispatcher.InvokeAsync(UpdateLayout, DispatcherPriority.ApplicationIdle);
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in VisualDescendants<T>(child)) yield return nested;
+        }
+    }
+    private void CaptureForecastCard(string path)
+    {
+        var width = Math.Max(1, (int)Math.Ceiling(ResetPanel.ActualWidth));
+        var height = Math.Max(1, (int)Math.Ceiling(ResetPanel.ActualHeight));
+        var visual = new DrawingVisual();
+        using (var drawing = visual.RenderOpen()) drawing.DrawRectangle(new VisualBrush(ResetPanel), null, new Rect(0, 0, width, height));
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(path); encoder.Save(stream);
+    }
     private bool ScrollOnlyAtHeightLimit() => AccountScroll.ScrollableHeight <= 1 || ActualHeight >= PanelHeightLimit - 1.5;
     private object PanelLayoutState() => new
     {

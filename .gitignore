@@ -9,6 +9,7 @@ settings.local.json
 settings.json
 profiles/
 cache.json
+reset-state.json
 .env*
 !*.example.json
 TestResults/

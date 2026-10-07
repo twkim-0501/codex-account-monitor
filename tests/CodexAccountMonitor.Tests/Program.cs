@@ -27,6 +27,17 @@ if (args.Contains("--fake-server"))
     return;
 }
 
+if (args.Contains("--feed-live"))
+{
+    using var feed = new ResetFeed();
+    using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(55));
+    var outlook = await feed.ReadAsync(DateTimeOffset.UtcNow, cancel.Token);
+    Console.WriteLine(JsonSerializer.Serialize(new { outlook.CheckedAt, outlook.SourceUpdatedAt, outlook.PartialCoverage, outlook.Note,
+        signals = outlook.Signals.Select(s => new { s.Id, s.Level, s.Title, s.Timing, s.Reason, s.PollSummary }), outlook.Completions,
+        outlook.CommunityForecast, forecast = ResetForecasting.Build(outlook, DateTimeOffset.UtcNow) }, new JsonSerializerOptions { WriteIndented = true }));
+    return;
+}
+
 if (args.Contains("--live"))
 {
     var sources = args.SkipWhile(x => x != "--live").Skip(1).ToArray();
@@ -40,7 +51,7 @@ if (args.Contains("--live"))
             var data = await connection.ReadAsync(cancel.Token);
             Console.WriteLine(JsonSerializer.Serialize(new { target, email = MetricFormatting.MaskEmail(data.Email), data.AuthType, data.Plan, buckets = data.Windows.Count,
                 windows = data.Windows.Select(x => new { x.Bucket, x.DurationMinutes, x.RemainingPercent }), hasLifetime = data.LifetimeTokens.HasValue,
-                dailyCount = data.Daily?.Count, data.LimitsNote, data.UsageNote }));
+                dailyCount = data.Daily?.Count, data.ResetCredits, creditDetails = data.ResetCreditDetails?.Select(c => new { c.Status, c.ExpiresAt }), data.LimitsNote, data.UsageNote }));
         }
         catch (Exception error) { Console.WriteLine(JsonSerializer.Serialize(new { target, error = error.GetType().Name, message = error is RpcException ? "RPC error" : error.Message })); Environment.ExitCode = 1; }
     }
@@ -50,6 +61,9 @@ if (args.Contains("--live"))
 var passed = 0;
 void Check(bool condition, string label) { if (!condition) throw new Exception("FAIL: " + label); Console.WriteLine("PASS: " + label); passed++; }
 JsonElement Json(string value) => JsonDocument.Parse(value).RootElement.Clone();
+ResetTests.Run(Check);
+ForecastTests.Run(Check);
+CommunityForecastTests.Run(Check);
 var account = Json("""{"account":{"type":"chatgpt","email":"test@example.com","planType":"pro"}}""");
 var snapshot = UsageParser.Parse("a", account,
     Json("""{"accountId":"workspace-one","ordinaryUsageAllowed":false,"rateLimits":{"primary":{"usedPercent":99}},"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":25,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":80,"windowDurationMins":10080}},"other":{"primary":{"usedPercent":110,"windowDurationMins":60}}},"rateLimitResetCredits":{"availableCount":2}}"""),
