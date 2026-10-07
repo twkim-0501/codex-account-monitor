@@ -12,7 +12,7 @@ public sealed class ResetFeed : IDisposable
     {
         http = handler is null ? new HttpClient() : new HttpClient(handler);
         http.Timeout = TimeSpan.FromSeconds(20);
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.4.3 (+https://github.com/twkim-0501/codex-account-monitor)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.4.4 (+https://github.com/twkim-0501/codex-account-monitor)");
     }
 
     public async Task<ResetOutlook> ReadAsync(DateTimeOffset now, CancellationToken token)

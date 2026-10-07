@@ -72,6 +72,23 @@ internal static class ResetTests
         check(!ResetNotices.CreditExpiry("name", current, now.AddDays(1)).Any(), "stale snapshots cannot trigger expiry alerts");
         var schedule = withIdentity("id"); schedule.Windows = [new("codex", "Codex", 90, 10080, now.AddDays(7))];
         check(ResetNotices.AccountChanges("name", previous, schedule, now).Single().Title.Contains("시각 변경"), "changed server reset time is detected without inventing quota recovery");
+        var jitter = withIdentity("id"); jitter.Windows = [previous.Windows[0] with { ResetsAt = previous.Windows[0].ResetsAt!.Value.AddSeconds(-1) }];
+        check(!ResetNotices.AccountChanges("hrk", previous, jitter, now).Any(), "one-second server reset correction does not trigger the observed hrk notification spam");
+        jitter.Windows = [previous.Windows[0] with { ResetsAt = previous.Windows[0].ResetsAt!.Value.AddMinutes(5).AddSeconds(-1) }];
+        check(!ResetNotices.AccountChanges("name", previous, jitter, now).Any(), "reset corrections under five minutes stay silent");
+        jitter.Windows = [previous.Windows[0] with { ResetsAt = previous.Windows[0].ResetsAt!.Value.AddMinutes(-5) }];
+        check(ResetNotices.AccountChanges("name", previous, jitter, now).Single().Body.Contains("5분"), "a five-minute change to an active future reset still alerts with its new schedule");
+        var rollover = withIdentity("id"); rollover.Windows = [new("codex", "Codex", 0, 300, now.AddMinutes(-1))];
+        var renewed = withIdentity("id"); renewed.UpdatedAt = now.AddMinutes(1); renewed.Windows = [new("codex", "Codex", 1, 300, now.AddHours(5))];
+        check(!ResetNotices.AccountChanges("name", rollover, renewed, renewed.UpdatedAt).Any(), "normal quota window rollover does not announce a changed reset schedule");
+        rollover.Windows = [new("codex", "Codex", 0, 300, now.AddHours(1))]; renewed.Windows = [new("codex", "Codex", 0, 300, now.AddHours(5))];
+        check(!ResetNotices.AccountChanges("name", rollover, renewed, renewed.UpdatedAt).Any(), "unused quota window timestamps can advance without schedule notifications");
+        var extraWindow = new QuotaWindow("codex", "Codex", 10, 300, now.AddHours(1));
+        previous.Windows.Add(extraWindow); schedule.Windows.Add(extraWindow);
+        var beforeNoise = ResetNotices.AccountChanges("name", previous, schedule, now).Single();
+        schedule.Windows[1] = extraWindow with { ResetsAt = extraWindow.ResetsAt!.Value.AddSeconds(1) };
+        var afterNoise = ResetNotices.AccountChanges("name", previous, schedule, now).Single();
+        check(beforeNoise.Key == afterNoise.Key, "unrelated quota timestamp jitter cannot change a material reset notice fingerprint");
 
         var syndicated = ResetFeedParser.SyndicatedPost(Json("""{"id_str":"2107576143285219799","created_at":"2026-10-06T20:58:04Z","text":"Vote","user":{"screen_name":"thsottiaux"},"parent":{"id_str":"2107575657014468879","text":"Day 2 roundup","user":{"screen_name":"thsottiaux"}},"card":{"binding_values":{"choice1_label":{"string_value":"good day"},"choice2_label":{"string_value":"needs a reset"},"choice2_count":{"string_value":"76"},"end_datetime_utc":{"string_value":"2026-10-07T00:58:03Z"},"counts_are_final":{"boolean_value":true}}}}"""));
         check(syndicated?.Poll is { IsClosed: true, Choices.Count: 2 } && syndicated.Parent?.Author == "thsottiaux", "syndication adapter reads the real poll-card shape and parent author");

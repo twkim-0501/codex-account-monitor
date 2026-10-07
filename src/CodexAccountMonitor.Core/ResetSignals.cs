@@ -210,8 +210,17 @@ public static class ResetNotices
         var recovered = current.Windows.Where(w => previous.Windows.Any(p => p.Bucket == w.Bucket && p.DurationMinutes == w.DurationMinutes && p.UsedPercent - w.UsedPercent >= 5)).ToArray();
         if (recovered.Length > 0)
             yield return new($"quota:{current.IdentityKey}:{string.Join(';', recovered.Select(w => $"{w.Bucket}:{w.DurationMinutes}:{w.ResetsAt}:{Math.Round(w.UsedPercent)}"))}", name + " 한도 회복 확인", string.Join(" · ", recovered.Select(w => $"{w.DurationLabel} {w.RemainingPercent:0}% 남음")) + "\n원인은 정기 갱신·초기화권·전체 리셋 중 별도 확인이 필요합니다.");
-        else if (current.Windows.Any(w => previous.Windows.Any(p => p.Bucket == w.Bucket && p.DurationMinutes == w.DurationMinutes && p.ResetsAt is not null && w.ResetsAt is not null && p.ResetsAt != w.ResetsAt)))
-            yield return new($"schedule:{current.IdentityKey}:{string.Join(';', current.Windows.Select(w => w.ResetsAt))}", name + " 리셋 시각 변경", "서버가 새 정기 리셋 시각을 제공했습니다. 계정을 펼쳐 확인하세요.");
+        else
+        {
+            // Small server timestamp corrections and the start of a new quota window are routine refreshes.
+            var changed = current.Windows.Where(w => w.ResetsAt is { } reset && reset > now && previous.Windows.Any(p =>
+                p.Bucket == w.Bucket && p.DurationMinutes == w.DurationMinutes && p.ResetsAt is { } oldReset && oldReset > now &&
+                (p.UsedPercent > 0 || w.UsedPercent > 0) && (reset - oldReset).Duration() >= TimeSpan.FromMinutes(5)))
+                .OrderBy(w => w.Bucket, StringComparer.Ordinal).ThenBy(w => w.DurationMinutes).ToArray();
+            if (changed.Length > 0)
+                yield return new($"schedule:{current.IdentityKey}:{string.Join(';', changed.Select(w => $"{w.Bucket}:{w.DurationMinutes}:{w.ResetsAt!.Value.ToUnixTimeSeconds()}"))}", name + " 리셋 시각 변경",
+                    string.Join(" · ", changed.Select(w => $"{w.DurationLabel} {ResetJudgment.KoreanTime(w.ResetsAt!.Value)}")) + "\n진행 중인 한도의 리셋 일정이 5분 이상 바뀌었습니다.");
+        }
         if (current.ResetCredits is { } count && previous.ResetCredits is { } old && count > old)
             yield return new($"credits:{current.IdentityKey}:{count}:{string.Join(';', current.ResetCreditDetails?.Select(c => c.Id) ?? [])}", name + " 초기화권 증가", $"초기화권 {old}개 → {count}개. 지급 공지와 계정 반영은 별도로 확인합니다.");
     }

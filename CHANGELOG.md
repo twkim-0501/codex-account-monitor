@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.4
+
+- Fixed repeated reset-schedule notifications caused by second-level server timestamp corrections. Only changes of at least five minutes to an active, future quota reset now notify; normal window rollover and unused quota windows stay silent. Notification fingerprints exclude unrelated windows, and the notification shows the new reset time.
+- Added regression checks for the observed hrk timestamp correction, the five-minute threshold, normal window rollover, unused windows, and notification deduplication.
+
 ## 1.4.3
 
 - Clarified the special-reset card title and both horizon labels with “리셋 확률” so its percentages are distinguishable from remaining account quota.

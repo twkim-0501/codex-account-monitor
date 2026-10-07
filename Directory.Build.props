@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.4.3</Version>
+    <Version>1.4.4</Version>
     <Authors>twkim-0501</Authors>
     <RepositoryUrl>https://github.com/twkim-0501/codex-account-monitor</RepositoryUrl>
   </PropertyGroup>
