@@ -22,7 +22,7 @@ public partial class MainWindow
         var title = new Grid();
         title.ColumnDefinitions.Add(new ColumnDefinition());
         title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        title.Children.Add(Text("다음 특별 리셋", 12, Ink, FontWeights.SemiBold));
+        title.Children.Add(Text("다음 특별 리셋 확률", 12, Ink, FontWeights.SemiBold));
         var (status, color) = ForecastBadge(forecast);
         var badge = new Border { CornerRadius = new CornerRadius(5), Padding = new Thickness(7, 3, 7, 3),
             Child = Text(status, 9, color, FontWeights.SemiBold), ToolTip = forecast.Explanation };
@@ -31,8 +31,8 @@ public partial class MainWindow
 
         var gauges = new Grid { Margin = new Thickness(0, 12, 0, 5) };
         gauges.ColumnDefinitions.Add(new ColumnDefinition()); gauges.ColumnDefinitions.Add(new ColumnDefinition());
-        var day = ProbabilityGauge("24시간 내", RenderedProbabilityAvailable ? community!.Within24Hours : null);
-        var twoDays = ProbabilityGauge("48시간 내", RenderedProbabilityAvailable ? community!.Within48Hours : null);
+        var day = ProbabilityGauge("24시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within24Hours : null);
+        var twoDays = ProbabilityGauge("48시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within48Hours : null);
         gauges.Children.Add(day); Grid.SetColumn(twoDays, 1); gauges.Children.Add(twoDays); header.Children.Add(gauges);
         var attribution = Text(RenderedProbabilityAvailable ? "커뮤니티 확률 · 실험적 추정" : "확률 데이터 확인 중", 9, Soft);
         attribution.HorizontalAlignment = HorizontalAlignment.Center;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.3
+
+- Clarified the special-reset card title and both horizon labels with “리셋 확률” so its percentages are distinguishable from remaining account quota.
+
 ## 1.4.2
 
 - Reorganized README around a direct executable download and first-run installation, keeping advanced setup and credits in dedicated documents. Added version-specific release notes.
