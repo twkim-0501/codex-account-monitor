@@ -35,6 +35,10 @@ public partial class MainWindow
         CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
 
         var first = (Expander)((Border)Cards.Children[0]).Child;
+        var summary = VisualDescendants<Border>((Grid)first.Header).Single(b => Equals(b.Tag, "weekly-budget-summary"));
+        var summaryText = VisualDescendants<TextBlock>(summary).Select(t => t.Text).ToArray();
+        checks["weeklyBudgetVisibleInCollapsedAccount"] = !first.IsExpanded && summaryText.Contains("주간 남음") &&
+            summaryText.Contains("40%") && summaryText.Contains("4일") && summaryText.Contains("10%") && summaryText.Contains("빠른 편");
         var originalBottom = Top + ActualHeight;
         first.IsExpanded = true;
         await SettlePanelLayoutAsync();
@@ -44,6 +48,17 @@ public partial class MainWindow
         checks["expansionKeepsBottomAnchorUnlessScreenClamped"] = Math.Abs(Top - expectedTop) <= 1.5;
         checks["expandedContentFitsOrReachesScreenLimit"] = ScrollOnlyAtHeightLimit();
         layouts["firstExpanded"] = PanelLayoutState();
+        checks["expandedWeeklyBudgetComparesQuotaWithTime"] = VisualDescendants<Border>(first).Count(b => Equals(b.Tag, "weekly-budget-bar")) == 2 &&
+            VisualDescendants<TextBlock>(first).Any(t => t.Text == "주간 한도 사용") && VisualDescendants<TextBlock>(first).Any(t => t.Text == "지난 기간");
+        CapturePanelElement(first, System.IO.Path.Combine(directory, "weekly-account.png"));
+        var previewBudget = WeeklyUsageBudget.Build(snapshots[settings.Sources[0].Id], true, DateTimeOffset.UtcNow).Single();
+        var preview = new StackPanel { Width = summary.ActualWidth, Background = Brush("#FFFFFF"), Margin = new Thickness(0) };
+        preview.Children.Add(Text("Personal · 주간 배분", 14, Ink, FontWeights.SemiBold, new Thickness(10, 10, 10, 0)));
+        preview.Children.Add(BuildWeeklyBudgetSummary(previewBudget, false));
+        preview.Children.Add(BuildWeeklyBudgetDetail(previewBudget, false));
+        preview.Measure(new Size(preview.Width, double.PositiveInfinity));
+        preview.Arrange(new Rect(new Point(), preview.DesiredSize)); preview.UpdateLayout();
+        CapturePanelElement(preview, System.IO.Path.Combine(directory, "weekly-budget.png"));
 
         var expandedHeight = ActualHeight;
         Hide(); Height = MinHeight; ShowDetails();
@@ -51,6 +66,11 @@ public partial class MainWindow
         checks["reopeningRepairsManuallyShortenedWindow"] = Math.Abs(ActualHeight - expandedHeight) <= 1.5 && ScrollOnlyAtHeightLimit();
 
         var source = settings.Sources[0];
+        healthy.Remove(source.Id); RenderCards(); await SettlePanelLayoutAsync();
+        var staleAccount = (Expander)((Border)Cards.Children[0]).Child;
+        checks["failedRefreshHidesDailyBudgetAndPaceBars"] = VisualDescendants<TextBlock>((Grid)staleAccount.Header).Any(t => t.Text == "주간 배분 · 확인 필요") &&
+            !VisualDescendants<Border>(staleAccount).Any(b => Equals(b.Tag, "weekly-budget-bar"));
+        healthy.Add(source.Id); RenderCards(); await SettlePanelLayoutAsync();
         var originalNote = snapshots[source.Id].UsageNote;
         snapshots[source.Id].UsageNote = string.Concat(Enumerable.Repeat("조회 안내가 길어지면 줄바꿈된 내용도 창 높이에 포함됩니다. ", 6));
         RenderCards();

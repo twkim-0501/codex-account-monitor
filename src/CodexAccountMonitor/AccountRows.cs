@@ -17,7 +17,11 @@ public partial class MainWindow
     private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate)
     {
         var worst = data?.Windows.OrderBy(x => x.RemainingPercent).FirstOrDefault();
+        var budgets = WeeklyUsageBudget.Build(data, healthy.Contains(source.Id), DateTimeOffset.UtcNow);
+        var primaryBudget = budgets.FirstOrDefault(b => !b.IsAvailable) ?? budgets.OrderBy(b => b.DailyPercent).First();
         var header = new Grid();
+        header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        header.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -45,12 +49,15 @@ public partial class MainWindow
         var edit = new Button { Content = "···", ToolTip = "계정 연결 편집", Width = 26, Height = 28, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
         edit.Click += (_, e) => { e.Handled = true; EditSource(source); };
         Grid.SetColumn(edit, 2); header.Children.Add(edit);
+        var budgetSummary = BuildWeeklyBudgetSummary(primaryBudget, budgets.Count > 1);
+        Grid.SetRow(budgetSummary, 1); Grid.SetColumnSpan(budgetSummary, 3); header.Children.Add(budgetSummary);
 
         var details = new StackPanel();
         details.Children.Add(Text(MetricFormatting.MaskEmail(data?.Email) + " · " + source.Location, 10, Soft, margin: new Thickness(0, 0, 0, 10)));
         if (data is null) details.Children.Add(Text("사용량을 조회하고 있습니다…", 11, Soft));
         else
         {
+            foreach (var budget in budgets.Where(b => b.IsAvailable)) details.Children.Add(BuildWeeklyBudgetDetail(budget, budgets.Count > 1));
             foreach (var quota in data.Windows)
             {
                 var row = new Grid { Margin = new Thickness(0, 4, 0, 0) };
@@ -72,7 +79,7 @@ public partial class MainWindow
             var updated = $"갱신 {data.UpdatedAt.ToLocalTime():MM/dd HH:mm}";
             details.Children.Add(Text(updated, 9, Soft, margin: new Thickness(0, 10, 0, 0)));
         }
-        var expander = new Expander { Header = header, Content = details, IsExpanded = expandedAccounts.Contains(source.Id), ToolTip = "계정을 클릭하면 토큰과 초기화 시각을 펼칩니다" };
+        var expander = new Expander { Header = header, Content = details, IsExpanded = expandedAccounts.Contains(source.Id), ToolTip = "계정을 클릭하면 주간 사용 속도와 상세 정보를 펼칩니다" };
         expander.Expanded += (_, _) => { expandedAccounts.Add(source.Id); QueuePanelSize(); };
         expander.Collapsed += (_, _) => { expandedAccounts.Remove(source.Id); QueuePanelSize(); };
         return new Border { BorderBrush = Brush("#E8E8EE"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(0, 3, 0, 3), Child = expander };

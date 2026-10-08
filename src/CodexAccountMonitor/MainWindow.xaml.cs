@@ -109,7 +109,8 @@ public partial class MainWindow : Window
             var name = i switch { 0 => "Personal", 1 => "Research", 2 => "Backup", _ => $"Account {i + 1}" };
             var source = new AccountSource { Id = $"demo-{i}", Name = name, ShortName = i switch { 0 => "My", 1 => "Lab", 2 => "Alt", _ => $"A{i + 1}" }, Kind = i == 1 ? "ssh" : "local", SshHost = i == 1 ? "research-server" : null };
             settings.Sources.Add(source);
-            snapshots[source.Id] = DemoSnapshot(source.Id, $"{name.Replace(" ", "").ToLowerInvariant()}@example.com", $"account-{i}", 33 + i * 9 % 60, 25 + i * 12 % 70, 487_000_000 / (i + 1), 33_065_000_000 / (i + 1));
+            snapshots[source.Id] = DemoSnapshot(source.Id, $"{name.Replace(" ", "").ToLowerInvariant()}@example.com", $"account-{i}", i switch { 0 => 60, 1 => 20, 2 => 43, _ => 33 + i * 9 % 60 }, 25 + i * 12 % 70, 487_000_000 / (i + 1), 33_065_000_000 / (i + 1));
+            snapshots[source.Id].Windows[1] = snapshots[source.Id].Windows[1] with { ResetsAt = DateTimeOffset.UtcNow.AddDays(i == 1 ? 2 : 4) };
             if (i < 2) snapshots[source.Id].ResetCreditDetails![0] = snapshots[source.Id].ResetCreditDetails![0] with { GrantedAt = DateTimeOffset.UtcNow.AddMinutes(-18) };
             healthy.Add(source.Id);
         }

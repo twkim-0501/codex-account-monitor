@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+
+- Added weekly remaining quota, time until regular reset, and a daily quota budget to every account row. Pacing badges compare used quota with the elapsed fraction of the server-provided seven-day period.
+- Added two comparison bars in expanded accounts, keeping daily token history below the weekly planning information. Each weekly quota bucket retains its own budget.
+- Recalculate from fresh account data after quota recovery or credit redemption. Hide plans for stale, failed, missing, or expired reads; under 24 hours, show the total remaining allowance rather than extrapolating a full-day budget. Special-reset predictions do not change weekly budgets.
+- Added calculation and layout regression checks, and documented the daily budget with a safe demo preview.
+
 ## 1.6.0
 
 - Put credit payout times and next reset times first, with source links directly on each card. Removed explanatory paragraphs, expanders, and distribution-step indicators from the reset cards.
