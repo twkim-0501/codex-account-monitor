@@ -38,7 +38,7 @@ public partial class MainWindow
         summary.Children.Add(Text(news.Headline, 15, Ink, FontWeights.SemiBold));
         var names = news.Accounts.Where(a => a.State == CreditGrantAccountState.Confirmed).Select(a => a.Name).ToArray();
         var accountSummary = names.Length > 0 ? string.Join(" · ", names.Take(2)) + (names.Length > 2 ? $" 외 {names.Length - 2}개" : "") + " 지급 확인"
-            : news.State == CreditGrantState.Completed ? "내 계정 반영은 별도 확인" : "내 계정 반영 대기";
+            : news.State == CreditGrantState.Completed ? "내 계정에도 들어왔는지 확인 중" : "내 계정 지급 확인 대기";
         summary.Children.Add(Text(accountSummary, 10, Soft, margin: new Thickness(0, 5, 0, 0)));
         Grid.SetColumn(summary, 1); main.Children.Add(summary); header.Children.Add(main);
 
@@ -65,7 +65,7 @@ public partial class MainWindow
         Grid.SetColumn(disclosure, 1); footer.Children.Add(disclosure); header.Children.Add(footer);
 
         var expander = new Expander { Header = header, Content = BuildCreditGrantReasons(news), IsExpanded = creditNewsExpanded,
-            ToolTip = "지급 근거와 계정별 반영 상태를 펼칩니다" };
+            ToolTip = "지급 소식의 출처와 내 계정에 들어왔는지 확인합니다" };
         expander.Expanded += (_, _) => { creditNewsExpanded = true; disclosure.Text = "근거 닫기 ⌃"; QueuePanelSize(); };
         expander.Collapsed += (_, _) => { creditNewsExpanded = false; disclosure.Text = "근거 보기 ⌄"; QueuePanelSize(); };
         CreditNewsExpander = expander;
@@ -80,9 +80,9 @@ public partial class MainWindow
         if (news.SourceUrl is { } url)
         {
             var publicReason = resetState.Outlook.Signals.FirstOrDefault(s => s.Id == news.SourceId)?.Reason
-                ?? "공개 초기화권 지급 완료 공지입니다. 계정 반영은 아래 조회값으로 따로 확인합니다.";
-            details.Children.Add(ReasonRow("공개 공지", publicReason, url, demo));
-            if (news.ConfirmedAccounts > 0) details.Children.Add(Text("서버의 새 발급 기록으로 내 계정 반영을 확인했습니다.", 10, Soft, margin: new Thickness(0, 8, 0, 0)));
+                ?? "Tibo가 초기화권 지급을 마쳤다고 알렸습니다. 내 계정에 들어왔는지는 아래에서 확인합니다.";
+            details.Children.Add(ReasonRow("Tibo의 공지", publicReason, url, demo));
+            if (news.ConfirmedAccounts > 0) details.Children.Add(Text("아래 계정의 발급 기록에서 새 초기화권이 들어온 것을 확인했습니다.", 10, Soft, margin: new Thickness(0, 8, 0, 0)));
         }
         else details.Children.Add(Text(news.Explanation, 10, Soft));
         if (news.DeadlineEvidence is { } timing) details.Children.Add(Text(timing, 9, Soft, margin: new Thickness(0, 8, 0, 0)));
@@ -94,15 +94,15 @@ public partial class MainWindow
             var status = account.State switch
             {
                 CreditGrantAccountState.Confirmed => $"+{account.NewCredits}장 확인" + (account.AvailableCount is { } count ? $" · 보유 {count}개" : ""),
-                CreditGrantAccountState.Awaiting => "아직 지급 미확인",
-                _ => "조회 또는 발급 시각 확인 필요"
+                CreditGrantAccountState.Awaiting => "아직 지급 확인 안 됨",
+                _ => "지급 여부를 확인할 정보 부족"
             };
             var value = Text(status, 9, account.State == CreditGrantAccountState.Confirmed ? ForecastGreen : Soft);
             if (account.GrantedAt is { } at) value.ToolTip = "서버 발급 시각 · " + ResetJudgment.KoreanTime(at);
             Grid.SetColumn(value, 1); row.Children.Add(value);
             details.Children.Add(row);
         }
-        details.Children.Add(Text("발급 시각이 제공된 계정만 지급을 확인합니다. 초기화권을 사용할 때 한도가 초기화됩니다.", 9, Soft, margin: new Thickness(0, 10, 0, 0)));
+        details.Children.Add(Text("발급 시각을 알 수 없는 계정은 아직 확인하지 못한 것으로 표시합니다. 초기화권을 직접 사용하면 한도가 초기화됩니다.", 9, Soft, margin: new Thickness(0, 10, 0, 0)));
         return details;
     }
 }

@@ -10,6 +10,6 @@ public sealed record CommunityResetForecast(double Within24Hours, double Within4
         && UpdatedAt <= now.AddMinutes(5) && FetchedAt <= now.AddMinutes(5)
         && now - UpdatedAt <= TimeSpan.FromHours(6) && now - FetchedAt <= TimeSpan.FromMinutes(20);
     public string Reason => Method == "empirical-baseline"
-        ? "과거 리셋 간격을 기준으로 계산한 확률입니다. 새로운 예고가 반영된 수치는 아닙니다."
-        : "CodexReset이 공개 게시물과 리셋 기록으로 계산한 확률입니다. 앱의 게시물 판단과 다를 수 있습니다.";
+        ? "CodexReset이 과거 리셋 간격을 보고 계산한 예상 확률입니다. 새 리셋 예고는 이 숫자에 포함되지 않았습니다."
+        : "CodexReset이 게시물과 과거 리셋 기록으로 계산한 예상 확률입니다. 오른쪽 상태 표시는 앱이 글을 읽고 정하므로 이 숫자와 다를 수 있습니다.";
 }

@@ -58,8 +58,8 @@ public static class CreditGrantNewsBuilder
             : signal?.DueAt is { } due ? ResetJudgment.KoreanTime(due) + "까지 예상"
             : completion is not null ? "완료 공지 · " + ResetJudgment.KoreanTime(completion.At) : "지급 시각 미정";
         var quantities = confirmed.Select(a => a.NewCredits).Distinct().ToArray();
-        var explanation = confirmed.Length > 0 ? "Codex 서버의 발급 시각으로 최근 지급된 초기화권을 확인했습니다. 보유 개수와 새 지급 개수를 구분합니다."
-            : completion is not null ? "공개 지급 완료 공지입니다. 내 계정의 반영 여부는 계정 조회값으로 따로 확인합니다."
+        var explanation = confirmed.Length > 0 ? "Codex 서버의 발급 기록에서 새 초기화권이 들어온 것을 확인했습니다. +1은 보유 개수가 아니라 새로 받은 개수입니다."
+            : completion is not null ? "Tibo가 초기화권 지급을 마쳤다고 알렸습니다. 내 계정에 들어왔는지는 아래에서 확인합니다."
             : signal!.Reason;
         return new(stateOfNews, headline, badge, timing, explanation, signal?.Id ?? completion?.Id, signal?.PostedAt ?? completion?.At,
             quantities.Length == 1 ? quantities[0] : null, accounts, signal?.Timing);

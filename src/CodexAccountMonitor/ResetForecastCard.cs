@@ -37,7 +37,7 @@ public partial class MainWindow
         var attribution = Text(RenderedProbabilityAvailable ? forecast.Kind == ResetSignalKind.CreditGrant
             ? "한도 리셋 확률 · 초기화권 지급과 별도" : "커뮤니티 확률 · 실험적 추정" : "확률 데이터 확인 중", 9, Soft);
         attribution.HorizontalAlignment = HorizontalAlignment.Center;
-        attribution.ToolTip = "확률 출처: codexreset.org. 게시물에 대한 앱의 판단은 오른쪽 상태와 근거에서 확인합니다.";
+        attribution.ToolTip = "확률은 codexreset.org에서 가져옵니다. 오른쪽 상태는 앱이 Tibo의 글을 읽고 정합니다. 근거 보기에서 각각의 이유를 확인할 수 있습니다.";
         header.Children.Add(attribution);
 
         var timing = new Grid { Margin = new Thickness(0, 11, 0, 0) };
@@ -63,7 +63,7 @@ public partial class MainWindow
 
         var details = BuildForecastReasons(forecast, community, now);
         var expander = new Expander { Header = header, Content = details, IsExpanded = outlookExpanded,
-            ToolTip = "클릭하면 짧은 판단 근거와 선택적으로 열 수 있는 원문 링크를 표시합니다" };
+            ToolTip = "예상한 이유를 읽고, 필요하면 원문을 열 수 있습니다" };
         expander.Expanded += (_, _) => { outlookExpanded = true; disclosure.Text = "근거 닫기 ⌃"; QueuePanelSize(); };
         expander.Collapsed += (_, _) => { outlookExpanded = false; disclosure.Text = "근거 보기 ⌄"; QueuePanelSize(); };
         ForecastExpander = expander;
@@ -80,14 +80,14 @@ public partial class MainWindow
         {
             details.Children.Add(ReasonRow("확률", community.Reason, CommunityResetForecast.SourceUrl, demo));
         }
-        else details.Children.Add(Text("확률은 현재 확인할 수 없습니다. 게시물 판단은 아래에 표시합니다.", 10, Soft, margin: new Thickness(0, 7, 0, 0)));
+        else details.Children.Add(Text("예상 확률은 아직 확인하지 못했습니다. 아래에는 Tibo의 글에서 확인한 내용을 표시합니다.", 10, Soft, margin: new Thickness(0, 7, 0, 0)));
 
         foreach (var basis in forecast.Evidence.Take(3))
         {
             var summary = CompactEvidence(basis, resetState.Outlook, now);
             details.Children.Add(ReasonRow(basis.RoleLabel, summary, "https://x.com/thsottiaux/status/" + basis.Id, demo));
         }
-        if (forecast.Evidence.Count == 0) details.Children.Add(Text("현재 수집 범위에서 다음 리셋을 가리키는 게시물이 없습니다.", 10, Soft, margin: new Thickness(0, 8, 0, 0)));
+        if (forecast.Evidence.Count == 0) details.Children.Add(Text("지금 확인한 글에는 다음 리셋 예고가 없습니다.", 10, Soft, margin: new Thickness(0, 8, 0, 0)));
         details.Children.Add(Text(CompactChange(forecast), 10, Soft, margin: new Thickness(0, 10, 0, 0)));
         var updated = community is not null && RenderedProbabilityAvailable ? "확률 갱신 " + ResetJudgment.KoreanTime(community.UpdatedAt) : "확률 수집 대기";
         details.Children.Add(Text(demo ? "가상 예시 · 실제 예측이 아닙니다" : updated + " · 소식 10분 간격", 9, Soft, margin: new Thickness(0, 10, 0, 0)));
@@ -97,7 +97,7 @@ public partial class MainWindow
         {
             var sources = new WrapPanel { Margin = new Thickness(0, 5, 0, 0) };
             sources.Children.Add(SourceLink("CodexReset ↗", CommunityResetForecast.SourceUrl));
-            sources.Children.Add(SourceLink("Data from Codex Resets ↗", "https://codex-resets.com"));
+            sources.Children.Add(SourceLink("공지 출처: Codex Resets ↗", "https://codex-resets.com"));
             details.Children.Add(sources);
         }
         return details;
@@ -150,8 +150,8 @@ public partial class MainWindow
     };
     private static string CompactTiming(ResetForecast forecast) => forecast.State switch
     {
-        ResetForecastState.Elevated => forecast.Timing.Replace(" · 추정 관찰 범위", " · 추정"),
-        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => forecast.Timing.Replace(" · 완료 별도 확인", "").Replace(" · PST/PT 표기 차이 1시간", " · PST/PT 1시간 차이"),
+        ResetForecastState.Elevated => forecast.Timing.Replace(" · 앱의 추정", " · 추정"),
+        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => forecast.Timing.Replace(" · 완료 별도 확인", "").Replace(" · 원문의 미국 서부 시간 표기에 따라 1시간 차이 가능", " · 원문 시차 1시간 주의"),
         ResetForecastState.Gathering => "확인 중",
         _ => "새 예고 대기"
     };
@@ -162,20 +162,20 @@ public partial class MainWindow
         {
             var total = poll.Choices.Sum(c => Math.Max(0d, c.Votes ?? 0));
             if (total > 0 && poll.Choices.All(c => c.Votes is >= 0))
-                return basis.Summary.Split('.')[0] + ". " + (poll.IsClosed ? "투표 종료." : "투표 진행 중.");
-            return "리셋 선택지는 있으나 득표 수를 확인하지 못했습니다.";
+                return basis.Summary;
+            return "투표에 ‘리셋’ 항목이 있지만 몇 표를 받았는지는 확인하지 못했습니다.";
         }
-        if (signal?.Level == ResetSignalLevel.Conditional) return "개선 출시 또는 리셋의 조건부 약속. 매일 리셋을 보장하진 않습니다.";
+        if (signal?.Level == ResetSignalLevel.Conditional) return signal.Reason;
         var context = outlook.CurrentContext.FirstOrDefault(c => c.Id == basis.Id);
-        if (context?.Kind == ResetCurrentContextKind.Completion) return "최근 리셋 완료. 이전 일회성 투표와 힌트는 제외했습니다.";
-        if (context?.Kind == ResetCurrentContextKind.Improvement) return "최근 개선 출시 확인. 리셋 취소 여부는 아직 알 수 없습니다.";
+        if (context?.Kind == ResetCurrentContextKind.Completion) return "최근 리셋은 이미 끝났습니다. 그 전에 나온 투표와 힌트는 다음 리셋을 예상할 때 쓰지 않습니다.";
+        if (context?.Kind == ResetCurrentContextKind.Improvement) return "Tibo가 Codex 개선 소식을 알렸습니다. 리셋이 취소됐는지는 이 글만으로 알 수 없습니다.";
         return basis.Summary;
     }
     private static string CompactChange(ResetForecast forecast) => forecast.State switch
     {
-        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => "다음 확인: 완료 공지 또는 실제 계정 한도 변화",
-        ResetForecastState.Elevated => "투표가 역전되거나 새 예고가 나오면 판단이 바뀝니다.",
-        _ => "새 투표·답글·실행 예고가 나오면 다시 판단합니다."
+        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => "완료 공지나 내 계정의 한도 변화를 확인하면 표시를 바꿉니다.",
+        ResetForecastState.Elevated => "투표 결과가 뒤집히거나 새 예고가 나오면 예상을 다시 검토합니다.",
+        _ => "새 투표나 답글, 리셋 예고가 나오면 다시 확인합니다."
     };
     private static string TimeAgo(DateTimeOffset at, DateTimeOffset now)
     {

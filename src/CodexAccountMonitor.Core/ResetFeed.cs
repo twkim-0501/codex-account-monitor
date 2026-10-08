@@ -12,7 +12,7 @@ public sealed class ResetFeed : IDisposable
     {
         http = handler is null ? new HttpClient() : new HttpClient(handler);
         http.Timeout = TimeSpan.FromSeconds(20);
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.5.0 (+https://github.com/twkim-0501/codex-account-monitor)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.5.1 (+https://github.com/twkim-0501/codex-account-monitor)");
     }
 
     public async Task<ResetOutlook> ReadAsync(DateTimeOffset now, CancellationToken token)
@@ -48,7 +48,7 @@ public sealed class ResetFeed : IDisposable
             contextOk = parsed.Count > 0;
             if (!contextOk) notes.Add("답글 맥락 수집 형식 변경");
         }
-        else notes.Add("답글 맥락 수집 실패");
+        else notes.Add("답글을 확인하지 못했습니다");
         if (!statusOk && !contextOk) throw new InvalidDataException("공개 소식을 확인할 수 없습니다");
         posts = posts.Where(p => p.CreatedAt >= now.AddDays(-32)).GroupBy(p => p.Id)
             .Select(g => g.Last() with { Schedule = g.Select(p => p.Schedule).FirstOrDefault(s => s is not null) }).ToList();
@@ -72,15 +72,15 @@ public sealed class ResetFeed : IDisposable
                 Parent = direct.Parent ?? candidate.Parent, Quote = direct.Quote ?? candidate.Quote, Schedule = candidate.Schedule };
             posts[posts.FindIndex(p => p.Id == candidate.Id)] = richer;
         }
-        if (missingContext) notes.Add("일부 투표·원문 맥락 미수집");
-        if (sourceUpdated is { } updated && now - updated > TimeSpan.FromHours(2)) notes.Add("공지 원본 갱신 지연");
-        if (posts.Count == 0 || now - posts.Max(p => p.CreatedAt) > TimeSpan.FromDays(2)) notes.Add("최근 게시물 수집 범위 확인 필요");
+        if (missingContext) notes.Add("일부 투표 항목이나 앞선 글을 확인하지 못했습니다");
+        if (sourceUpdated is { } updated && now - updated > TimeSpan.FromHours(2)) notes.Add("원본 사이트의 소식 갱신이 늦어지고 있습니다");
+        if (posts.Count == 0 || now - posts.Max(p => p.CreatedAt) > TimeSpan.FromDays(2)) notes.Add("최근 게시물이 빠져 있을 수 있습니다");
         var boundaries = completions.Concat(posts.Select(ResetJudgment.Completion).OfType<ResetCompletion>())
             .GroupBy(c => c.Kind).Select(g => g.MaxBy(c => c.At)!).ToList();
         return new ResetOutlook
         {
             CheckedAt = now, SourceUpdatedAt = sourceUpdated, PartialCoverage = notes.Count > 0,
-            Note = notes.Count == 0 ? "공개 수집본·투표 확인 · 새 글 반영에 지연 가능" : string.Join(" · ", notes),
+            Note = notes.Count == 0 ? "공개 소식과 투표를 확인했습니다. 새 글은 늦게 표시될 수 있습니다." : string.Join(" · ", notes),
             Signals = ResetJudgment.Evaluate(posts, completions, now),
             Completions = boundaries,
             CurrentContext = ResetForecasting.CurrentContext(posts, boundaries, now),

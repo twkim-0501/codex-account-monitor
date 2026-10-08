@@ -36,7 +36,7 @@ public partial class MainWindow
         {
             var now = DateTimeOffset.UtcNow;
             var promise = new ResetSignal("0000000000000000002", ResetSignalKind.UsageReset, ResetSignalLevel.Conditional, now.AddDays(-2), now.AddDays(26), null,
-                "개선 출시 또는 리셋", "매일 개선 출시 또는 리셋을 약속했습니다. 매일 리셋을 보장한 약속은 아닙니다.", "조건부 약속 · 일별 시각 미정", "Each day, we'll ship an improvement or a full reset. (fictional example)");
+                "개선 출시 또는 리셋", "Tibo가 매일 Codex를 개선하거나 리셋하겠다고 약속했습니다. 매일 리셋한다는 뜻은 아닙니다.", "조건부 약속 · 일별 시각 미정", "Each day, we'll ship an improvement or a full reset. (fictional example)");
             resetState.Outlook = new() { CheckedAt = now, CommunityForecast = new(68, 84, now, now, "fictional", "fictional example"), Note = "예시 데이터 · 실제 공지가 아닙니다", Signals =
                 [new("0000000000000000001", ResetSignalKind.UsageReset, ResetSignalLevel.Hint, now.AddHours(-2), now.AddHours(46), null,
                     "리셋을 묻는 투표", "투표 선택지에 리셋이 있고, 진행 중인 조건부 약속과 연결됩니다. 실행은 미확정입니다.", "투표 진행 중 · 실행 시각 미정",
@@ -44,7 +44,7 @@ public partial class MainWindow
                     new([new("good day", 24), new("needs a reset", 76)], now.AddHours(-1), true),
                     [new("0000000000000000003", "thsottiaux", "Roundup of Day 2: Codex improvements shipped. (fictional example)"), new(promise.Id, "thsottiaux", promise.Evidence)]), promise,
                     new("0000000000000000006", ResetSignalKind.CreditGrant, ResetSignalLevel.Announced, now.AddMinutes(-30), now.AddDays(1), now.AddHours(6),
-                        "가상 초기화권 지급", "가상 공지와 계정 발급 기록을 비교한 예시입니다.", "가상 지급 시각 · " + ResetJudgment.KoreanTime(now.AddHours(6)),
+                        "가상 초기화권 지급", "가상 예시: Tibo가 초기화권을 지급하겠다고 알린 상황입니다.", "가상 지급 시각 · " + ResetJudgment.KoreanTime(now.AddHours(6)),
                         "Loading a banked reset for paid Codex accounts. (fictional example)")] };
         }
         else resetState = store.LoadResetState();
@@ -86,7 +86,7 @@ public partial class MainWindow
             if (!exiting)
             {
                 resetState.Outlook.PartialCoverage = true;
-                resetState.Outlook.Note = "공개 소식 조회 실패 · 이전 확인값 · 10분 후 재시도";
+                resetState.Outlook.Note = "공개 소식을 확인하지 못해 이전 내용을 표시합니다. 10분 후에 다시 확인합니다.";
                 SaveResetState();
             }
         }

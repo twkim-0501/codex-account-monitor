@@ -84,7 +84,7 @@ public partial class MainWindow
         await SettlePanelLayoutAsync();
         checks["resetExpansionSurvivesRefresh"] = ForecastExpander!.IsExpanded;
         var localEvidence = (StackPanel)ForecastExpander.Content;
-        checks["briefReasonsAndOptionalLinksInsideApp"] = VisualDescendants<TextBlock>(localEvidence).Any(t => t.Text.Contains("리셋 선택지")) &&
+        checks["briefReasonsAndOptionalLinksInsideApp"] = VisualDescendants<TextBlock>(localEvidence).Any(t => t.Text.Contains("76/100표") && t.Text.Contains("발생 확률이 아닙니다")) &&
             VisualDescendants<Button>(localEvidence).Any(b => (string)b.Content == "원문 ↗") && !VisualDescendants<TextBox>(localEvidence).Any();
         var originalCommunity = resetState.Outlook.CommunityForecast;
         resetState.Outlook.CommunityForecast = originalCommunity! with { FetchedAt = DateTimeOffset.UtcNow.AddHours(-1) };

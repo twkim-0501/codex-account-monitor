@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1
+
+- Rewrote credit-grant announcements, forecast evidence, and explanatory tooltips in plain Korean. Named Tibo and described what each post says, what is confirmed for each account, and what remains unknown.
+- Clarified poll vote shares versus reset probabilities, probability sources, and timing uncertainty. Renamed abstract evidence labels and preserved the same reset judgment and receipt checks.
+
 ## 1.5.0
 
 - Added a separate credit-grant news card with a large incoming-credit count, confirmed account names, and announcement / distribution / account-reflection steps. Brief evidence, original announcement links, and account-by-account receipt details expand on demand.

@@ -80,15 +80,15 @@ public static class ResetJudgment
             if (!hasReset && !pollReset && !voteInChallenge && !contextualHint && !contextualAnnouncement && post.Schedule is null) continue;
             var kind = post.Schedule?.Kind ?? Kind(own + (pollReset ? " " + string.Join(" ", post.Poll!.Choices.Select(c => c.Label)) : (contextualHint || contextualAnnouncement) && !hasReset ? " " + context : ""));
             var level = ResetSignalLevel.Hint;
-            var reason = "리셋을 언급했지만 실행 약속은 확인되지 않았습니다.";
+            var reason = "Tibo가 리셋을 언급했습니다. 실제로 리셋하겠다고 약속한 글은 아직 없습니다.";
             DateTimeOffset? due = null;
             var expires = post.CreatedAt.AddHours(48);
             var timing = "실행 시각 미정 · 힌트는 게시 후 최대 48시간 표시";
             if (hasReset && Conditional(own) && Has(own, @"\b(?:we|i|will|we['’]ll|each day)\b"))
             {
                 level = ResetSignalLevel.Conditional;
-                reason = Has(own, @"\beither\b") ? "조건에 따라 개선 출시 또는 리셋을 약속했습니다. 매일 리셋한다는 뜻은 아닙니다."
-                    : "대상이나 실행에 조건이 있는 약속입니다. 원문 조건과 계정 반영을 확인해야 합니다.";
+                reason = Has(own, @"\beither\b") ? "Tibo가 조건에 따라 Codex를 개선하거나 리셋하겠다고 약속했습니다. 매일 리셋한다는 뜻은 아닙니다."
+                    : "Tibo가 특정 조건이 맞으면 리셋하겠다고 약속했습니다. 어떤 조건인지, 내 계정도 대상인지는 원문에서 확인해야 합니다.";
                 var days = Regex.Match(own, @"next\s+(\d{1,2})\s+days", RegexOptions.IgnoreCase);
                 if (days.Success && int.TryParse(days.Groups[1].Value, out var n) && n is > 0 and <= 31)
                 {
@@ -100,28 +100,29 @@ public static class ResetJudgment
             else if ((post.Schedule is not null || contextualAnnouncement || loadingCredit || hasReset && Has(own, @"\b(?:we|i) (?:will|shall|are (?:going to|resetting)|will be)|\bwe['’]ll\b|\bwe['’]re (?:resetting|giving|granting)|\b(?:more )?resets? (?:are )?coming|\blands? (?:today|tomorrow|end)|\bwill (?:give|ship|reset|credit|do)\b|reset.{0,80}(?:will (?:land|arrive|be (?:given|granted))|is coming)")) && !Has(own, @"\b(?:maybe|might|could|hope|wish|please|should we|try|trying|probably|likely)\b"))
             {
                 level = ResetSignalLevel.Announced;
-                reason = contextualAnnouncement ? "작성자의 초기 공지와 후속 답글을 연결해 실행 예고를 확인했습니다. 내 계정 반영은 별도 확인합니다."
-                    : post.Schedule is not null && !hasReset ? "수집사이트가 작성자의 후속 글을 실행 예고로 분류했습니다. 원문 맥락과 내 계정 반영은 별도 확인합니다."
-                    : loadingCredit ? "초기화권 지급을 진행한다는 공지입니다. 전체 계정 지급 완료를 뜻하지는 않습니다."
-                    : "작성자가 실행 의사를 직접 밝혔습니다. 내 계정 반영은 별도 확인합니다.";
+                var action = kind == ResetSignalKind.CreditGrant ? "초기화권을 지급" : "한도를 리셋";
+                reason = contextualAnnouncement ? $"Tibo가 앞선 공지에 이어 답글로 {action}하겠다고 알렸습니다. 내 계정에도 적용됐는지는 따로 확인합니다."
+                    : post.Schedule is not null && !hasReset ? $"공개 사이트가 Tibo의 후속 글을 {action}한다는 예고로 분류했습니다. 원문 내용과 내 계정의 상태는 따로 확인해야 합니다."
+                    : loadingCredit ? "Tibo가 초기화권을 지급 중이라고 알렸습니다. 모든 계정에 지급이 끝났다는 뜻은 아닙니다."
+                    : $"Tibo가 {action}하겠다고 직접 알렸습니다. 내 계정에도 적용됐는지는 따로 확인합니다.";
                 (due, expires, timing) = Timing(post);
             }
             else if (pollReset || voteInChallenge)
             {
-                reason = pollReset ? "투표 선택지에 리셋이 있습니다. 투표 결과만으로 실행을 확정할 수 없습니다."
-                    : "진행 중인 개선 또는 리셋 약속과 일일 정리 글에 연결된 Vote 답글입니다. 투표 선택지는 수집되지 않았습니다.";
-                if (challenge is not null) reason += " 진행 중인 조건부 약속과 연결됩니다.";
+                reason = pollReset ? "Tibo의 투표에 ‘리셋’ 항목이 있습니다. 표가 많아도 실제로 리셋할지는 아직 알 수 없습니다."
+                    : "Tibo가 하루 동안의 Codex 개선 내용을 정리한 글에 ‘Vote’라는 답글을 달았습니다. 투표 항목은 확인하지 못했습니다.";
+                if (challenge is not null) reason += " 앞서 ‘특정 조건이 맞으면 리셋하겠다’고 한 약속도 함께 참고합니다.";
             }
             else if (contextualHint)
             {
-                reason = "리셋을 언급한 앞선 글에 미래 동작을 시사하는 답글·인용입니다. 맥락에 의존하므로 확정 예고로 보지 않습니다.";
+                reason = "Tibo가 리셋 관련 글에 앞으로의 계획을 암시하는 답글이나 인용을 남겼습니다. 리셋을 확실히 약속한 글은 아닙니다.";
             }
             else if (!Has(own, @"codex|work|usage|limit|quota|banked|reset.{0,15}(?:today|tomorrow|week|coming)|more resets")) continue;
             if (expires <= now) continue;
             // A continuing conditional promise survives individual completions; one-off plans/hints do not.
             var notBefore = level == ResetSignalLevel.Announced ? EarliestExecution(post, due) : null;
             if (level != ResetSignalLevel.Conditional && completed.Any(c => c.Kind == kind && c.At >= post.CreatedAt && c.Id != post.Id && (notBefore is null || c.At >= notBefore))) continue;
-            if (Has(own, @"paid|plus.{0,15}pro")) reason += " 원문 대상은 유료 플랜입니다.";
+            if (Has(own, @"paid|plus.{0,15}pro")) reason += " 원문에는 유료 플랜 사용자가 대상이라고 적혀 있습니다.";
             var title = level == ResetSignalLevel.Conditional && Has(own, @"\beither\b") ? "개선 출시 또는 리셋" : kind == ResetSignalKind.CreditGrant ? "초기화권 지급 소식" : "리셋 소식";
             string? pollSummary = null;
             if (post.Poll is { } poll)
@@ -147,8 +148,8 @@ public static class ResetJudgment
         if (post.Schedule?.By is { } scheduled)
         {
             var ambiguous = Has(text, @"\bPST\b") && Pacific.IsDaylightSavingTime(TimeZoneInfo.ConvertTime(post.CreatedAt, Pacific).Date);
-            return (scheduled, scheduled.AddHours(24), KoreanTime(scheduled) + "까지 · 수집사이트 예상" +
-                (ambiguous ? " · PST/PT 표기 차이 1시간" : "") + " · 완료 별도 확인");
+            return (scheduled, scheduled.AddHours(24), KoreanTime(scheduled) + "까지 · 공개 사이트가 안내한 시각" +
+                (ambiguous ? " · 원문의 미국 서부 시간 표기에 따라 1시간 차이 가능" : "") + " · 완료 별도 확인");
         }
         var relative = Regex.Match(text, @"(?:next|in|~)\s*(one|an?|\d{1,3})\s*(hours?|minutes?)", RegexOptions.IgnoreCase);
         if (relative.Success)
@@ -166,7 +167,7 @@ public static class ResetJudgment
             var zoneOffset = abbreviation == "PST" ? TimeSpan.FromHours(-8) : abbreviation == "PDT" ? TimeSpan.FromHours(-7) : Pacific.GetUtcOffset(date);
             var end = new DateTimeOffset(date, zoneOffset).ToUniversalTime();
             var ambiguous = abbreviation == "PST" && Pacific.IsDaylightSavingTime(local.Date);
-            return (end, end.AddHours(24), KoreanTime(end) + "까지" + (ambiguous ? " · PST 표기 기준, PT를 뜻했다면 1시간 빠름" : " · 게시자의 하루 종료 기준") + " · 완료 별도 확인");
+            return (end, end.AddHours(24), KoreanTime(end) + "까지" + (ambiguous ? " · 원문의 PST 기준. 미국 서부 현지 시간을 뜻했다면 1시간 빠름" : " · Tibo가 말한 하루의 끝을 한국시간으로 변환") + " · 완료 별도 확인");
         }
         var clock = Regex.Match(text, @"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*(PT|PDT|PST)\b", RegexOptions.IgnoreCase);
         if (clock.Success && Has(text, @"today|tomorrow"))
@@ -182,7 +183,7 @@ public static class ResetJudgment
                 var zoneOffset = abbreviation == "PST" ? TimeSpan.FromHours(-8) : abbreviation == "PDT" ? TimeSpan.FromHours(-7) : Pacific.GetUtcOffset(date);
                 var due = new DateTimeOffset(date, zoneOffset).ToUniversalTime();
                 var ambiguous = abbreviation == "PST" && Pacific.IsDaylightSavingTime(date);
-                return (due, due.AddHours(24), KoreanTime(due) + (ambiguous ? " · PST 표기 기준, PT를 뜻했다면 1시간 빠름" : " · 예고 시각") + " · 완료 별도 확인");
+                return (due, due.AddHours(24), KoreanTime(due) + (ambiguous ? " · 원문의 PST 기준. 미국 서부 현지 시간을 뜻했다면 1시간 빠름" : " · 예고 시각") + " · 완료 별도 확인");
             }
         }
         if (Has(text, @"next week")) return (null, new DateTimeOffset(local.Date.AddDays(14), Pacific.GetUtcOffset(local.Date.AddDays(14))), "다음 주 · 정확한 일시 미정");

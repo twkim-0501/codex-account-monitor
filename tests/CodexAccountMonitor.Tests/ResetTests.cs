@@ -27,7 +27,7 @@ internal static class ResetTests
             new([new("good day", 24), new("needs a reset", 76)], now.AddHours(-1), true));
         var signals = Judge(challenge, vote);
         check(signals.Any(s => s.Id == challenge.Id && s.Level == ResetSignalLevel.Conditional) && signals.Any(s => s.Id == vote.Id && s.Level == ResetSignalLevel.Hint && s.PollSummary!.Contains("76")), "short Vote reply plus poll and ongoing promise becomes a hint, not a firm reset");
-        check(Judge(challenge, vote with { Poll = null }).Any(s => s.Id == vote.Id && s.Reason.Contains("미수집") == false && s.Reason.Contains("수집되지")), "missing poll choices are disclosed while daily-roundup context still supplies a weak hint");
+        check(Judge(challenge, vote with { Poll = null }).Any(s => s.Id == vote.Id && s.Reason.Contains("투표 항목은 확인하지 못했습니다")), "missing poll choices are disclosed while daily-roundup context still supplies a weak hint");
         check(Judge(vote with { Poll = null }).Count == 0, "Vote alone without reset context is not enough");
         check(Judge(challenge, vote with { Poll = null, Parent = vote.Parent! with { Author = "someoneelse" } }).Count == 1, "community parent cannot supply a promise on Tibo's behalf");
         var completed = Post("2107676072871600470", "Reset all propagated. Enjoy.", -.5);
@@ -60,7 +60,7 @@ internal static class ResetTests
         check(ResetJudgment.Completion(grantDone)?.Kind == ResetSignalKind.CreditGrant && Judge(loading, deadlineReply, grantDone).Count == 0, "a genuinely completed grant retires its announcement even when delivered before EOD");
         var scheduledReply = deadlineReply with { Schedule = new(ResetSignalKind.CreditGrant, now.AddHours(5)) };
         var scheduledSignal = Judge(loading, scheduledReply).Single();
-        check(scheduledSignal.DueAt == now.AddHours(5) && scheduledSignal.Timing.Contains("수집사이트 예상") && scheduledSignal.Timing.Contains("1시간"), "provider schedule is preserved with provenance and PST versus PT ambiguity");
+        check(scheduledSignal.DueAt == now.AddHours(5) && scheduledSignal.Timing.Contains("공개 사이트가 안내한 시각") && scheduledSignal.Timing.Contains("1시간"), "provider schedule is preserved with provenance and PST versus PT ambiguity");
         check(ResetJudgment.Evaluate([challenge], [], now.AddDays(30)).Count == 0, "expired conditional program is removed");
         var oldOutlook = new ResetOutlook { Signals = Judge(challenge, vote) };
         var failedSource = new ResetOutlook { PartialCoverage = true };
