@@ -34,14 +34,15 @@ public partial class MainWindow
         var day = ProbabilityGauge("24시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within24Hours : null);
         var twoDays = ProbabilityGauge("48시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within48Hours : null);
         gauges.Children.Add(day); Grid.SetColumn(twoDays, 1); gauges.Children.Add(twoDays); header.Children.Add(gauges);
-        var attribution = Text(RenderedProbabilityAvailable ? "커뮤니티 확률 · 실험적 추정" : "확률 데이터 확인 중", 9, Soft);
+        var attribution = Text(RenderedProbabilityAvailable ? forecast.Kind == ResetSignalKind.CreditGrant
+            ? "한도 리셋 확률 · 초기화권 지급과 별도" : "커뮤니티 확률 · 실험적 추정" : "확률 데이터 확인 중", 9, Soft);
         attribution.HorizontalAlignment = HorizontalAlignment.Center;
         attribution.ToolTip = "확률 출처: codexreset.org. 게시물에 대한 앱의 판단은 오른쪽 상태와 근거에서 확인합니다.";
         header.Children.Add(attribution);
 
         var timing = new Grid { Margin = new Thickness(0, 11, 0, 0) };
         timing.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(57) }); timing.ColumnDefinitions.Add(new ColumnDefinition());
-        timing.Children.Add(Text("예상 시각", 9, Soft, margin: new Thickness(0, 2, 0, 0)));
+        timing.Children.Add(Text(forecast.Kind == ResetSignalKind.CreditGrant ? "지급 예정" : "예상 시각", 9, Soft, margin: new Thickness(0, 2, 0, 0)));
         var timingValue = Text(CompactTiming(forecast), 10, Ink, FontWeights.Medium);
         timingValue.ToolTip = forecast.Timing; Grid.SetColumn(timingValue, 1); timing.Children.Add(timingValue); header.Children.Add(timing);
 
@@ -149,7 +150,7 @@ public partial class MainWindow
     private static string CompactTiming(ResetForecast forecast) => forecast.State switch
     {
         ResetForecastState.Elevated => forecast.Timing.Replace(" · 추정 관찰 범위", " · 추정"),
-        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => forecast.Timing,
+        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => forecast.Timing.Replace(" · 완료 별도 확인", "").Replace(" · PST/PT 표기 차이 1시간", " · PST/PT 1시간 차이"),
         ResetForecastState.Gathering => "확인 중",
         _ => "새 예고 대기"
     };

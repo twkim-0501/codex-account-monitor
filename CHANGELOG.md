@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.5
+
+- Fixed missed banked-reset announcements: in-progress credit loading is no longer classified as completed, and scheduled replies without the reset keyword are enriched with the author's parent announcement.
+- Preserved structured scheduled deadlines through source merging and X enrichment. End-of-day deadlines retain their source and disclose PST/PT wording ambiguity; an early completion can retire the announcement.
+- Displayed credit-grant timing separately from the regular quota-reset probability. Added end-to-end public-feed regression checks and credit-announcement layout checks.
+
 ## 1.4.4
 
 - Fixed repeated reset-schedule notifications caused by second-level server timestamp corrections. Only changes of at least five minutes to an active, future quota reset now notify; normal window rollover and unused quota windows stay silent. Notification fingerprints exclude unrelated windows, and the notification shows the new reset time.

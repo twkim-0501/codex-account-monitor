@@ -12,7 +12,7 @@ public sealed class ResetFeed : IDisposable
     {
         http = handler is null ? new HttpClient() : new HttpClient(handler);
         http.Timeout = TimeSpan.FromSeconds(20);
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.4.4 (+https://github.com/twkim-0501/codex-account-monitor)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("CodexAccountMonitor/1.4.5 (+https://github.com/twkim-0501/codex-account-monitor)");
     }
 
     public async Task<ResetOutlook> ReadAsync(DateTimeOffset now, CancellationToken token)
@@ -50,10 +50,11 @@ public sealed class ResetFeed : IDisposable
         }
         else notes.Add("답글 맥락 수집 실패");
         if (!statusOk && !contextOk) throw new InvalidDataException("공개 소식을 확인할 수 없습니다");
-        posts = posts.Where(p => p.CreatedAt >= now.AddDays(-32)).GroupBy(p => p.Id).Select(g => g.Last()).ToList();
+        posts = posts.Where(p => p.CreatedAt >= now.AddDays(-32)).GroupBy(p => p.Id)
+            .Select(g => g.Last() with { Schedule = g.Select(p => p.Schedule).FirstOrDefault(s => s is not null) }).ToList();
 
-        // The public timeline can omit poll cards. Enrich only reset candidates and short Vote replies.
-        var interesting = posts.Where(p => Regex.IsMatch(p.Text, @"\breset|^vote[.!]?$", RegexOptions.IgnoreCase))
+        // Enrich reset candidates, short Vote replies and scheduled timing replies that omit the reset keyword.
+        var interesting = posts.Where(p => p.Schedule is not null || Regex.IsMatch(p.Text, @"\breset|^vote[.!]?$", RegexOptions.IgnoreCase))
             .OrderByDescending(p => p.CreatedAt).Take(6).ToArray();
         var missingContext = false;
         foreach (var candidate in interesting)
@@ -68,7 +69,7 @@ public sealed class ResetFeed : IDisposable
             if (direct is null || direct.Id != candidate.Id || !direct.Author.Equals("thsottiaux", StringComparison.OrdinalIgnoreCase)) { missingContext = true; continue; }
             // Some widget bodies are truncated; keep the longer collected body and verified poll/context.
             var richer = direct with { Text = direct.Text.Length > candidate.Text.Length ? direct.Text : candidate.Text,
-                Parent = direct.Parent ?? candidate.Parent, Quote = direct.Quote ?? candidate.Quote };
+                Parent = direct.Parent ?? candidate.Parent, Quote = direct.Quote ?? candidate.Quote, Schedule = candidate.Schedule };
             posts[posts.FindIndex(p => p.Id == candidate.Id)] = richer;
         }
         if (missingContext) notes.Add("일부 투표·원문 맥락 미수집");
@@ -131,7 +132,14 @@ public static class ResetFeedParser
             var id = Str(item, "id") ?? Regex.Match(Str(source, "url") ?? "", @"/status/(\d+)").Groups[1].Value;
             var at = Date(item, "announced_at") ?? Date(item, "observed_at");
             if (!Regex.IsMatch(id, @"^\d{10,25}$") || at is null || Str(item, "text") is not { } text) continue;
-            posts.Add(new(id, "thsottiaux", text, at.Value));
+            ResetSchedule? schedule = null;
+            if (name == "scheduled_reset" && Str(item, "status") == "scheduled" && Str(item, "reset_type") is "regular" or "banked")
+            {
+                var by = Date(item, "scheduled_for");
+                if (by < at || by > at.Value.AddDays(32)) by = null;
+                schedule = new(Str(item, "reset_type") == "banked" ? ResetSignalKind.CreditGrant : ResetSignalKind.UsageReset, by);
+            }
+            posts.Add(new(id, "thsottiaux", text, at.Value, Schedule: schedule));
             if (name == "latest_reset") completed.Add(new(id, Str(item, "reset_type") == "banked" ? ResetSignalKind.CreditGrant : ResetSignalKind.UsageReset, at.Value));
             // Provider probabilities/averages are deliberately ignored; raw evidence is judged locally.
         }

@@ -64,6 +64,7 @@ JsonElement Json(string value) => JsonDocument.Parse(value).RootElement.Clone();
 ResetTests.Run(Check);
 ForecastTests.Run(Check);
 CommunityForecastTests.Run(Check);
+await ResetFeedTests.RunAsync(Check);
 var account = Json("""{"account":{"type":"chatgpt","email":"test@example.com","planType":"pro"}}""");
 var snapshot = UsageParser.Parse("a", account,
     Json("""{"accountId":"workspace-one","ordinaryUsageAllowed":false,"rateLimits":{"primary":{"usedPercent":99}},"rateLimitsByLimitId":{"codex":{"primary":{"usedPercent":25,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":80,"windowDurationMins":10080}},"other":{"primary":{"usedPercent":110,"windowDurationMins":60}}},"rateLimitResetCredits":{"availableCount":2}}"""),

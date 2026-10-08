@@ -96,6 +96,21 @@ public partial class MainWindow
         resetState.Outlook.Signals = originalSignals.Select(s => s.Poll is not null ? s with { Poll = s.Poll with { Choices = [new("good day", 76), new("needs a reset", 24)] } } : s).ToList();
         RenderCards(); await SettlePanelLayoutAsync();
         checks["reversedPollUpdatesForecastInUi"] = RenderedForecast?.State == ResetForecastState.Weak;
+        var creditNow = DateTimeOffset.UtcNow;
+        var creditReply = new ResetPost("0000000000000000005", "thsottiaux", "Will be available by EOD PST.", creditNow.AddMinutes(-10),
+            new("0000000000000000004", "thsottiaux", "Loading a banked reset for paid Codex accounts. (fictional example)"),
+            Schedule: new(ResetSignalKind.CreditGrant, creditNow.AddHours(6)));
+        resetState.Outlook.Signals = ResetJudgment.Evaluate([creditReply], [], creditNow);
+        outlookExpanded = false;
+        RenderCards(); await SettlePanelLayoutAsync();
+        var creditHeader = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Header;
+        checks["creditDeadlineAndSeparateQuotaProbabilitiesVisible"] = RenderedForecast is { State: ResetForecastState.Announced, Kind: ResetSignalKind.CreditGrant } &&
+            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text == "지급 예정") &&
+            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.Contains("초기화권 지급과 별도")) &&
+            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.Contains("수집사이트 예상"));
+        checks["creditAnnouncementRemainsCompactAndFits"] = creditHeader.ActualHeight <= 235 && ScrollOnlyAtHeightLimit();
+        CaptureForecastCard(System.IO.Path.Combine(directory, "credit-announcement.png"));
+        outlookExpanded = true;
         resetState.Outlook.Signals = originalSignals;
         RenderCards(); await SettlePanelLayoutAsync();
         Capture(System.IO.Path.Combine(directory, "reset-outlook.png"));

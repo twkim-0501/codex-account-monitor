@@ -10,8 +10,9 @@ public enum ResetSignalLevel { Announced, Conditional, Hint }
 public sealed record PostContext(string Id, string Author, string Text);
 public sealed record PollChoice(string Label, long? Votes);
 public sealed record ResetPoll(List<PollChoice> Choices, DateTimeOffset? EndsAt, bool IsClosed);
+public sealed record ResetSchedule(ResetSignalKind Kind, DateTimeOffset? By);
 public sealed record ResetPost(string Id, string Author, string Text, DateTimeOffset CreatedAt,
-    PostContext? Parent = null, PostContext? Quote = null, ResetPoll? Poll = null);
+    PostContext? Parent = null, PostContext? Quote = null, ResetPoll? Poll = null, ResetSchedule? Schedule = null);
 public sealed record ResetCompletion(string Id, ResetSignalKind Kind, DateTimeOffset At);
 public sealed record ResetSignal(string Id, ResetSignalKind Kind, ResetSignalLevel Level, DateTimeOffset PostedAt,
     DateTimeOffset ExpiresAt, DateTimeOffset? DueAt, string Title, string Reason, string Timing,
@@ -48,7 +49,8 @@ public static class ResetJudgment
     public static ResetCompletion? Completion(ResetPost post)
     {
         if (!IsTibo(post.Author) || Unrelated(post.Text) || Negated(post.Text) || !ResetMention(post.Text)) return null;
-        if (!Has(post.Text, @"reset(?:s)? (?:all )?(?:has been |have been |is |are )?(?:propagated|processed|completed)|(?:have|has|now) reset|all reset for|reset.{0,25}has been (?:processed|propagated)|(?:loading|loaded|credited|granted) (?:a |one )?banked reset")) return null;
+        if (Has(post.Text, @"\b(?:will|shall|going to)\b.{0,25}\b(?:load|credit|grant|reset)")) return null;
+        if (!Has(post.Text, @"reset(?:s)? (?:all )?(?:has been |have been |is |are )?(?:propagated|processed|completed)|(?:have|has|now) reset|all reset for|reset.{0,25}has been (?:processed|propagated)|(?:loaded|credited|granted) (?:a |one )?banked reset")) return null;
         return new(post.Id, Kind(post.Text), post.CreatedAt);
     }
 
@@ -70,8 +72,13 @@ public static class ResetJudgment
             var pollReset = post.Poll?.Choices.Any(c => ResetMention(c.Label)) == true;
             var voteInChallenge = Has(own, @"^\s*vote[.!]?\s*$") && challenge is not null && post.Parent is { } parent && IsTibo(parent.Author) && Has(context, @"roundup|day \d");
             var contextualHint = ResetMention(context) && !Unrelated(context) && Has(own, @"\bsoon\b|more coming|next week|stay tuned|we['’]ll|we will|working on it");
-            if (!hasReset && !pollReset && !voteInChallenge && !contextualHint) continue;
-            var kind = Kind(own + (pollReset ? " " + string.Join(" ", post.Poll!.Choices.Select(c => c.Label)) : contextualHint && !hasReset ? " " + context : ""));
+            var authoredResetContext = new[] { post.Parent, post.Quote }.OfType<PostContext>()
+                .Any(c => IsTibo(c.Author) && ResetMention(c.Text) && !Unrelated(c.Text) && !Negated(c.Text));
+            var contextualAnnouncement = authoredResetContext && Has(own, @"\bwill be (?:there|available|loaded|credited|granted)\b")
+                && Has(own, @"\beod\b|end of day|today|tomorrow|\b(?:in|next)\b.{0,12}(?:hours?|minutes?)");
+            var loadingCredit = hasReset && Has(own, @"\b(?:loading|crediting|granting|adding) (?:a |one )?banked reset\b");
+            if (!hasReset && !pollReset && !voteInChallenge && !contextualHint && !contextualAnnouncement && post.Schedule is null) continue;
+            var kind = post.Schedule?.Kind ?? Kind(own + (pollReset ? " " + string.Join(" ", post.Poll!.Choices.Select(c => c.Label)) : (contextualHint || contextualAnnouncement) && !hasReset ? " " + context : ""));
             var level = ResetSignalLevel.Hint;
             var reason = "리셋을 언급했지만 실행 약속은 확인되지 않았습니다.";
             DateTimeOffset? due = null;
@@ -90,10 +97,13 @@ public static class ResetJudgment
                 }
                 else timing = "조건 충족 여부와 실행 시각 미정";
             }
-            else if (hasReset && Has(own, @"\b(?:we|i) (?:will|shall|are (?:going to|resetting)|will be)|\bwe['’]ll\b|\bwe['’]re (?:resetting|giving|granting)|\b(?:more )?resets? (?:are )?coming|\blands? (?:today|tomorrow|end)|\bwill (?:give|ship|reset|credit|do)\b|reset.{0,80}(?:will (?:land|arrive|be (?:given|granted))|is coming)") && !Has(own, @"\b(?:maybe|might|could|hope|wish|please|should we|try|trying|probably|likely)\b"))
+            else if ((post.Schedule is not null || contextualAnnouncement || loadingCredit || hasReset && Has(own, @"\b(?:we|i) (?:will|shall|are (?:going to|resetting)|will be)|\bwe['’]ll\b|\bwe['’]re (?:resetting|giving|granting)|\b(?:more )?resets? (?:are )?coming|\blands? (?:today|tomorrow|end)|\bwill (?:give|ship|reset|credit|do)\b|reset.{0,80}(?:will (?:land|arrive|be (?:given|granted))|is coming)")) && !Has(own, @"\b(?:maybe|might|could|hope|wish|please|should we|try|trying|probably|likely)\b"))
             {
                 level = ResetSignalLevel.Announced;
-                reason = "작성자가 실행 의사를 직접 밝혔습니다. 내 계정 반영은 별도 확인합니다.";
+                reason = contextualAnnouncement ? "작성자의 초기 공지와 후속 답글을 연결해 실행 예고를 확인했습니다. 내 계정 반영은 별도 확인합니다."
+                    : post.Schedule is not null && !hasReset ? "수집사이트가 작성자의 후속 글을 실행 예고로 분류했습니다. 원문 맥락과 내 계정 반영은 별도 확인합니다."
+                    : loadingCredit ? "초기화권 지급을 진행한다는 공지입니다. 전체 계정 지급 완료를 뜻하지는 않습니다."
+                    : "작성자가 실행 의사를 직접 밝혔습니다. 내 계정 반영은 별도 확인합니다.";
                 (due, expires, timing) = Timing(post);
             }
             else if (pollReset || voteInChallenge)
@@ -120,6 +130,9 @@ public static class ResetJudgment
                 pollSummary += poll.IsClosed ? " · 투표 종료" : " · 진행 중";
                 if (poll.EndsAt is { } end) pollSummary += $" ({KoreanTime(end)})";
             }
+            // A verified timing reply refines its author's initial announcement; retain the parent as evidence.
+            if (level == ResetSignalLevel.Announced && post.Parent is { } announcedParent && IsTibo(announcedParent.Author))
+                signals.RemoveAll(s => s.Id == announcedParent.Id && s.Kind == kind && s.Level == ResetSignalLevel.Announced);
             signals.Add(new(post.Id, kind, level, post.CreatedAt, expires, due, title, reason, timing, own,
                 post.Parent?.Id ?? post.Quote?.Id ?? (voteInChallenge ? challenge?.Id : null), pollSummary, notBefore, post.Poll,
                 new[] { post.Parent, post.Quote }.OfType<PostContext>().Concat(challenge is not null && level == ResetSignalLevel.Hint
@@ -130,7 +143,13 @@ public static class ResetJudgment
 
     private static (DateTimeOffset? Due, DateTimeOffset Expires, string Label) Timing(ResetPost post)
     {
-        var text = post.Text;
+        var text = ExecutionText(post.Text);
+        if (post.Schedule?.By is { } scheduled)
+        {
+            var ambiguous = Has(text, @"\bPST\b") && Pacific.IsDaylightSavingTime(TimeZoneInfo.ConvertTime(post.CreatedAt, Pacific).Date);
+            return (scheduled, scheduled.AddHours(24), KoreanTime(scheduled) + "까지 · 수집사이트 예상" +
+                (ambiguous ? " · PST/PT 표기 차이 1시간" : "") + " · 완료 별도 확인");
+        }
         var relative = Regex.Match(text, @"(?:next|in|~)\s*(one|an?|\d{1,3})\s*(hours?|minutes?)", RegexOptions.IgnoreCase);
         if (relative.Success)
         {
@@ -139,6 +158,16 @@ public static class ResetJudgment
             return (due, due.AddHours(24), "대략 " + KoreanTime(due) + " · 예고 시각 이후에는 완료 확인 대기");
         }
         var local = TimeZoneInfo.ConvertTime(post.CreatedAt, Pacific);
+        var endOfDay = Regex.Match(text, @"\b(?:eod|end of day)\s*(PT|PDT|PST)\b", RegexOptions.IgnoreCase);
+        if (endOfDay.Success)
+        {
+            var date = local.Date.AddDays(Has(text, @"tomorrow") ? 2 : 1);
+            var abbreviation = endOfDay.Groups[1].Value.ToUpperInvariant();
+            var zoneOffset = abbreviation == "PST" ? TimeSpan.FromHours(-8) : abbreviation == "PDT" ? TimeSpan.FromHours(-7) : Pacific.GetUtcOffset(date);
+            var end = new DateTimeOffset(date, zoneOffset).ToUniversalTime();
+            var ambiguous = abbreviation == "PST" && Pacific.IsDaylightSavingTime(local.Date);
+            return (end, end.AddHours(24), KoreanTime(end) + "까지" + (ambiguous ? " · PST 표기 기준, PT를 뜻했다면 1시간 빠름" : " · 게시자의 하루 종료 기준") + " · 완료 별도 확인");
+        }
         var clock = Regex.Match(text, @"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*(PT|PDT|PST)\b", RegexOptions.IgnoreCase);
         if (clock.Success && Has(text, @"today|tomorrow"))
         {
@@ -168,18 +197,22 @@ public static class ResetJudgment
 
     private static DateTimeOffset? EarliestExecution(ResetPost post, DateTimeOffset? due)
     {
+        var text = ExecutionText(post.Text);
+        if (Has(text, @"\bby\b.{0,20}\b(?:eod|end of day)\b")) return post.CreatedAt;
         if (due is not null) return due.Value.AddMinutes(-90); // Covers approximate times and PST/PT wording ambiguity.
         var local = TimeZoneInfo.ConvertTime(post.CreatedAt, Pacific);
         DateTime date;
-        if (Has(post.Text, @"next week"))
+        if (Has(text, @"next week"))
         {
             var untilMonday = ((int)DayOfWeek.Monday - (int)local.DayOfWeek + 7) % 7;
             date = local.Date.AddDays(untilMonday == 0 ? 7 : untilMonday);
         }
-        else if (Has(post.Text, @"tomorrow")) date = local.Date.AddDays(1);
+        else if (Has(text, @"tomorrow")) date = local.Date.AddDays(1);
         else return null;
         return new DateTimeOffset(date, Pacific.GetUtcOffset(date));
     }
+
+    private static string ExecutionText(string text) => Regex.Replace(text, @"\bsee you(?: again)? tomorrow[.!]?", "", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     public static string KoreanTime(DateTimeOffset value) => value.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm 'KST'", CultureInfo.InvariantCulture);
     public static List<ResetSignal> Active(ResetOutlook outlook, DateTimeOffset now) => outlook.Signals.Where(s => s.ExpiresAt > now).ToList();

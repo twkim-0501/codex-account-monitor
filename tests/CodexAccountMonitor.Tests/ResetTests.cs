@@ -46,6 +46,21 @@ internal static class ResetTests
         check(Judge(Post("2100000000000000016", "A banked reset will land tomorrow.")).Single() is { Level: ResetSignalLevel.Announced, Kind: ResetSignalKind.CreditGrant }, "passive credit grant announcements are recognized");
         check(Judge(Post("2100000000000000013", "Soon.") with { Quote = new("2100000000000000014", "community", "Any more banked resets?") }).Single().Kind == ResetSignalKind.CreditGrant, "a contextual hint keeps the credit-grant kind of its parent");
         check(Judge(Post("2100000000000000012", "More resets coming next week.")).Single().DueAt is null, "next week is a range, not an invented timestamp");
+        var loading = Post("2100000000000000020", "Loading a banked reset in paid accounts. See you again tomorrow!");
+        check(ResetJudgment.Completion(loading) is null && Judge(loading).Single() is { Kind: ResetSignalKind.CreditGrant, Level: ResetSignalLevel.Announced, NotBefore: null }, "loading a banked reset announces an in-progress grant, not a completed grant or tomorrow's action");
+        var deadlineReply = Post("2100000000000000021", "Will be there by EOD PST.", -.9) with
+            { Parent = new(loading.Id, loading.Author, loading.Text) };
+        var grantReply = Judge(loading, deadlineReply).Single();
+        check(grantReply.Id == deadlineReply.Id && grantReply.Kind == ResetSignalKind.CreditGrant && grantReply.Level == ResetSignalLevel.Announced
+            && grantReply.DueAt == DateTimeOffset.Parse("2026-10-07T08:00:00Z") && grantReply.Timing.Contains("1시간"), "verified EOD reply refines its author's credit announcement and discloses literal PST ambiguity");
+        check(grantReply.Context?.Single().Id == loading.Id && grantReply.NotBefore == deadlineReply.CreatedAt, "deadline reply retains parent evidence and permits completion before its deadline");
+        check(Judge(deadlineReply with { Parent = deadlineReply.Parent! with { Author = "community" } }).Count == 0, "a community parent cannot turn a generic timing reply into an execution announcement");
+        check(Judge(deadlineReply with { Text = "Maybe it will be there by EOD PST." }).All(s => s.Level != ResetSignalLevel.Announced), "hedged timing replies cannot become firm execution announcements");
+        var grantDone = Post("2100000000000000022", "We have loaded a banked reset into paid accounts.", -.5);
+        check(ResetJudgment.Completion(grantDone)?.Kind == ResetSignalKind.CreditGrant && Judge(loading, deadlineReply, grantDone).Count == 0, "a genuinely completed grant retires its announcement even when delivered before EOD");
+        var scheduledReply = deadlineReply with { Schedule = new(ResetSignalKind.CreditGrant, now.AddHours(5)) };
+        var scheduledSignal = Judge(loading, scheduledReply).Single();
+        check(scheduledSignal.DueAt == now.AddHours(5) && scheduledSignal.Timing.Contains("수집사이트 예상") && scheduledSignal.Timing.Contains("1시간"), "provider schedule is preserved with provenance and PST versus PT ambiguity");
         check(ResetJudgment.Evaluate([challenge], [], now.AddDays(30)).Count == 0, "expired conditional program is removed");
         var oldOutlook = new ResetOutlook { Signals = Judge(challenge, vote) };
         var failedSource = new ResetOutlook { PartialCoverage = true };
