@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+- Added a separate credit-grant news card with a large incoming-credit count, confirmed account names, and announcement / distribution / account-reflection steps. Brief evidence, original announcement links, and account-by-account receipt details expand on demand.
+- Verified new grants using fresh server-issued credit timestamps, preserving the distinction from total held credits and regular quota-reset probabilities. Duplicate account connections do not inflate receipt counts; stale or incomplete data stays unconfirmed. Recent receipts remain visible for 48 hours without creating a news archive.
+- Added regression checks for receipt attribution and new layout checks for the independent news card and its evidence expansion.
+
 ## 1.4.5
 
 - Fixed missed banked-reset announcements: in-progress credit loading is no longer classified as completed, and scheduled replies without the reset keyword are enriched with the author's parent announcement.

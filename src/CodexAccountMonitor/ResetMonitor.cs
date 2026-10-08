@@ -42,7 +42,10 @@ public partial class MainWindow
                     "리셋을 묻는 투표", "투표 선택지에 리셋이 있고, 진행 중인 조건부 약속과 연결됩니다. 실행은 미확정입니다.", "투표 진행 중 · 실행 시각 미정",
                     "Vote (fictional example)", "0000000000000000003", "좋은 업데이트 24표 · 리셋 필요 76표 · 투표 종료 · 예시", null,
                     new([new("good day", 24), new("needs a reset", 76)], now.AddHours(-1), true),
-                    [new("0000000000000000003", "thsottiaux", "Roundup of Day 2: Codex improvements shipped. (fictional example)"), new(promise.Id, "thsottiaux", promise.Evidence)]), promise] };
+                    [new("0000000000000000003", "thsottiaux", "Roundup of Day 2: Codex improvements shipped. (fictional example)"), new(promise.Id, "thsottiaux", promise.Evidence)]), promise,
+                    new("0000000000000000006", ResetSignalKind.CreditGrant, ResetSignalLevel.Announced, now.AddMinutes(-30), now.AddDays(1), now.AddHours(6),
+                        "가상 초기화권 지급", "가상 공지와 계정 발급 기록을 비교한 예시입니다.", "가상 지급 시각 · " + ResetJudgment.KoreanTime(now.AddHours(6)),
+                        "Loading a banked reset for paid Codex accounts. (fictional example)")] };
         }
         else resetState = store.LoadResetState();
         noticeTimer.Tick += (_, _) => ShowNextNotice();
@@ -128,10 +131,21 @@ public partial class MainWindow
     private void RenderResetPanel()
     {
         ResetPanel.Children.Clear();
+        RenderedCreditNews = null; CreditNewsExpander = null; ForecastExpander = null;
         ResetPanel.Visibility = settings.WatchPublicResets ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.WatchPublicResets) return;
         var now = DateTimeOffset.UtcNow;
-        var forecast = ResetForecasting.Build(resetState.Outlook, now);
+        RenderedCreditNews = CreditGrantNewsBuilder.Build(resetState.Outlook, settings.Sources.Where(s => s.Enabled)
+            .Select(s => new NamedAccountSnapshot(s.Name, snapshots.GetValueOrDefault(s.Id))), now);
+        if (RenderedCreditNews is { } creditNews) ResetPanel.Children.Add(BuildCreditGrantCard(creditNews));
+        var quotaOutlook = new ResetOutlook
+        {
+            CheckedAt = resetState.Outlook.CheckedAt, PartialCoverage = resetState.Outlook.PartialCoverage, Note = resetState.Outlook.Note,
+            Signals = resetState.Outlook.Signals.Where(s => s.Kind == ResetSignalKind.UsageReset).ToList(),
+            CurrentContext = resetState.Outlook.CurrentContext, Completions = resetState.Outlook.Completions,
+            CommunityForecast = resetState.Outlook.CommunityForecast
+        };
+        var forecast = ResetForecasting.Build(quotaOutlook, now);
         RenderedForecast = forecast;
         ResetPanel.Children.Add(BuildForecastCard(forecast, now));
     }

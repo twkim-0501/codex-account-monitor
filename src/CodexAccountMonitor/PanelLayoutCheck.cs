@@ -25,7 +25,7 @@ public partial class MainWindow
         var collapsedHeight = ActualHeight;
         checks["collapsedRowsFitOrReachScreenLimit"] = ScrollOnlyAtHeightLimit();
         layouts["collapsed"] = PanelLayoutState();
-        var forecastCard = (Expander)((Border)ResetPanel.Children[0]).Child;
+        var forecastCard = ForecastExpander!;
         var visibleHeader = (StackPanel)forecastCard.Header;
         checks["twoHorizonProbabilitiesVisibleWithoutOpeningLinks"] = RenderedProbabilityAvailable &&
             VisualDescendants<TextBlock>(visibleHeader).Count(t => t.Text.EndsWith('%')) == 2 && !forecastCard.IsExpanded;
@@ -76,20 +76,20 @@ public partial class MainWindow
         Capture(System.IO.Path.Combine(directory, "all-expanded.png"));
 
         foreach (Border card in Cards.Children) ((Expander)card.Child).IsExpanded = false;
-        var resetExpander = (Expander)((Border)ResetPanel.Children[0]).Child;
+        var resetExpander = ForecastExpander!;
         resetExpander.IsExpanded = true;
         await SettlePanelLayoutAsync();
         checks["resetEvidenceFitsOrReachesScreenLimit"] = ScrollOnlyAtHeightLimit();
         RenderCards();
         await SettlePanelLayoutAsync();
-        checks["resetExpansionSurvivesRefresh"] = ((Expander)((Border)ResetPanel.Children[0]).Child).IsExpanded;
-        var localEvidence = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Content;
+        checks["resetExpansionSurvivesRefresh"] = ForecastExpander!.IsExpanded;
+        var localEvidence = (StackPanel)ForecastExpander.Content;
         checks["briefReasonsAndOptionalLinksInsideApp"] = VisualDescendants<TextBlock>(localEvidence).Any(t => t.Text.Contains("리셋 선택지")) &&
             VisualDescendants<Button>(localEvidence).Any(b => (string)b.Content == "원문 ↗") && !VisualDescendants<TextBox>(localEvidence).Any();
         var originalCommunity = resetState.Outlook.CommunityForecast;
         resetState.Outlook.CommunityForecast = originalCommunity! with { FetchedAt = DateTimeOffset.UtcNow.AddHours(-1) };
         RenderCards(); await SettlePanelLayoutAsync();
-        var staleHeader = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Header;
+        var staleHeader = (StackPanel)ForecastExpander!.Header;
         checks["staleProbabilitiesAreSuppressedInUi"] = !RenderedProbabilityAvailable && !VisualDescendants<TextBlock>(staleHeader).Any(t => t.Text.EndsWith('%'));
         resetState.Outlook.CommunityForecast = originalCommunity;
         var originalSignals = resetState.Outlook.Signals;
@@ -103,13 +103,34 @@ public partial class MainWindow
         resetState.Outlook.Signals = ResetJudgment.Evaluate([creditReply], [], creditNow);
         outlookExpanded = false;
         RenderCards(); await SettlePanelLayoutAsync();
-        var creditHeader = (StackPanel)((Expander)((Border)ResetPanel.Children[0]).Child).Header;
-        checks["creditDeadlineAndSeparateQuotaProbabilitiesVisible"] = RenderedForecast is { State: ResetForecastState.Announced, Kind: ResetSignalKind.CreditGrant } &&
-            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text == "지급 예정") &&
-            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.Contains("초기화권 지급과 별도")) &&
-            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.Contains("수집사이트 예상"));
+        var creditHeader = (StackPanel)CreditNewsExpander!.Header;
+        checks["creditDeadlineAndSeparateQuotaProbabilitiesVisible"] = RenderedCreditNews?.State == CreditGrantState.Distributing &&
+            RenderedForecast?.Kind == ResetSignalKind.UsageReset && ResetPanel.Children.Count == 2 &&
+            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.Contains("까지 예상")) &&
+            !VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text.EndsWith('%'));
         checks["creditAnnouncementRemainsCompactAndFits"] = creditHeader.ActualHeight <= 235 && ScrollOnlyAtHeightLimit();
         CaptureForecastCard(System.IO.Path.Combine(directory, "credit-announcement.png"));
+        var receiptSources = settings.Sources.Take(2).ToArray();
+        var originalCredits = receiptSources.Select(s => (Snapshot: snapshots[s.Id], Details: snapshots[s.Id].ResetCreditDetails, Count: snapshots[s.Id].ResetCredits)).ToArray();
+        foreach (var saved in originalCredits)
+        {
+            saved.Snapshot.ResetCreditDetails = (saved.Details ?? []).Append(new("fictional-new-credit", "codexRateLimits", "available", creditNow.AddMinutes(-2), creditNow.AddDays(30), null)).ToList();
+            saved.Snapshot.ResetCredits = 3;
+        }
+        RenderCards(); await SettlePanelLayoutAsync();
+        creditHeader = (StackPanel)CreditNewsExpander!.Header;
+        checks["accountGrantConfirmationReachesSeparateNewsCard"] = RenderedCreditNews is { State: CreditGrantState.AccountConfirmed, ConfirmedAccounts: 2, CreditsPerAccount: 1 } &&
+            VisualDescendants<TextBlock>(creditHeader).Any(t => t.Text == "+1");
+        CaptureForecastCard(System.IO.Path.Combine(directory, "credit-news-and-forecast.png"));
+        CreditNewsExpander.IsExpanded = true;
+        await SettlePanelLayoutAsync();
+        checks["creditEvidenceExpansionFitsOrReachesScreenLimit"] = ScrollOnlyAtHeightLimit();
+        RenderCards(); await SettlePanelLayoutAsync();
+        checks["creditNewsExpansionSurvivesRefresh"] = CreditNewsExpander!.IsExpanded && !ForecastExpander!.IsExpanded;
+        CapturePanelElement((Border)CreditNewsExpander.Parent, System.IO.Path.Combine(directory, "credit-news-reasons.png"));
+        CreditNewsExpander.IsExpanded = false; await SettlePanelLayoutAsync();
+        CapturePanelElement((Border)CreditNewsExpander.Parent, System.IO.Path.Combine(directory, "credit-news-card.png"));
+        foreach (var saved in originalCredits) { saved.Snapshot.ResetCreditDetails = saved.Details; saved.Snapshot.ResetCredits = saved.Count; }
         outlookExpanded = true;
         resetState.Outlook.Signals = originalSignals;
         RenderCards(); await SettlePanelLayoutAsync();
@@ -118,7 +139,7 @@ public partial class MainWindow
         ((Expander)((Border)Cards.Children[0]).Child).IsExpanded = true;
         await SettlePanelLayoutAsync();
         Capture(System.IO.Path.Combine(directory, "reset-and-credit.png"));
-        ((Expander)((Border)ResetPanel.Children[0]).Child).IsExpanded = false;
+        ForecastExpander!.IsExpanded = false;
         foreach (Border card in Cards.Children) ((Expander)card.Child).IsExpanded = true;
 
         // A short viewport exercises overflow even on a large development display.
@@ -145,10 +166,14 @@ public partial class MainWindow
     }
     private void CaptureForecastCard(string path)
     {
-        var width = Math.Max(1, (int)Math.Ceiling(ResetPanel.ActualWidth));
-        var height = Math.Max(1, (int)Math.Ceiling(ResetPanel.ActualHeight));
+        CapturePanelElement(ResetPanel, path);
+    }
+    private static void CapturePanelElement(FrameworkElement element, string path)
+    {
+        var width = Math.Max(1, (int)Math.Ceiling(element.ActualWidth));
+        var height = Math.Max(1, (int)Math.Ceiling(element.ActualHeight));
         var visual = new DrawingVisual();
-        using (var drawing = visual.RenderOpen()) drawing.DrawRectangle(new VisualBrush(ResetPanel), null, new Rect(0, 0, width, height));
+        using (var drawing = visual.RenderOpen()) drawing.DrawRectangle(new VisualBrush(element), null, new Rect(0, 0, width, height));
         var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = File.Create(path); encoder.Save(stream);

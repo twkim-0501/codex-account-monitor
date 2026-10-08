@@ -21,6 +21,7 @@ public sealed class HelpWindow : Window
         Step(stack, "3. 숫자와 상세 정보", "표시된 %는 남은 사용 한도입니다. 계정을 누르면 토큰 사용량과 초기화 시각을 펼칩니다. 앞의 3개를 표시하고 추가 계정은 +N으로 전체 목록을 엽니다.");
         Step(stack, "4. 접기와 종료", "− 또는 창 닫기는 상세 창만 접습니다. 앱을 종료하려면 미니 위젯이나 오른쪽 알림 영역 아이콘을 우클릭하고 ‘종료’를 선택하세요.");
         Step(stack, "5. 리셋 예측과 초기화권", "계정의 정기 리셋 시각과 초기화권 개수·만료일은 Codex 서버 조회값입니다. ‘다음 특별 리셋’의 두 게이지는 CodexReset의 24시간·48시간 커뮤니티 추정 확률입니다. 근거 보기를 누르면 짧은 설명과 원문 링크가 나옵니다. 상태 표시는 Tibo의 투표·답글·약속을 앱이 판단한 결과입니다. 소식은 10분마다 확인하며, 오래된 확률은 ‘—’로 표시합니다.");
+        Step(stack, "6. 초기화권 지급 소식", "별도 카드의 +1은 새 지급량입니다. 예고·지급 진행·계정 반영 단계를 표시하며, 서버가 제공한 발급 시각으로 내 계정의 새 지급을 확인합니다. 근거 보기를 누르면 원문 링크와 계정별 반영 상태가 나옵니다. 보유 개수와 새 지급량은 다른 숫자입니다.");
         var readme = new Button { Content = "설치·SSH 설정·문제 해결 안내 열기", Background = (Brush)new BrushConverter().ConvertFromString("#EEEEF4")!, Margin = new Thickness(0, 14, 0, 8) };
         readme.Click += (_, _) => Process.Start(new ProcessStartInfo("https://github.com/twkim-0501/codex-account-monitor#readme") { UseShellExecute = true });
         stack.Children.Add(readme);

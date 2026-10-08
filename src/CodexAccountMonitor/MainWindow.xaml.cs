@@ -110,6 +110,7 @@ public partial class MainWindow : Window
             var source = new AccountSource { Id = $"demo-{i}", Name = name, ShortName = i switch { 0 => "My", 1 => "Lab", 2 => "Alt", _ => $"A{i + 1}" }, Kind = i == 1 ? "ssh" : "local", SshHost = i == 1 ? "research-server" : null };
             settings.Sources.Add(source);
             snapshots[source.Id] = DemoSnapshot(source.Id, $"{name.Replace(" ", "").ToLowerInvariant()}@example.com", $"account-{i}", 33 + i * 9 % 60, 25 + i * 12 % 70, 487_000_000 / (i + 1), 33_065_000_000 / (i + 1));
+            if (i < 2) snapshots[source.Id].ResetCreditDetails![0] = snapshots[source.Id].ResetCreditDetails![0] with { GrantedAt = DateTimeOffset.UtcNow.AddMinutes(-18) };
             healthy.Add(source.Id);
         }
     }
@@ -316,7 +317,7 @@ public partial class MainWindow : Window
         if (ResetPanel.Children.Count > 0)
         {
             CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
-            var forecastDetails = (Expander)((Border)ResetPanel.Children[0]).Child;
+            var forecastDetails = ForecastExpander!;
             forecastDetails.IsExpanded = true;
             await SettlePanelLayoutAsync();
             CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-reasons.png"));
@@ -390,6 +391,7 @@ public partial class MainWindow : Window
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), miniAccounts);
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview-dark.png"), miniAccounts, lightTheme: false);
         if (demo) SourceWindow.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "add-ssh-preview.png"), store.DirectoryPath);
+        if (CreditNewsExpander?.Parent is Border creditCard) CapturePanelElement(creditCard, System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "credit-news-card.png"));
     }
     private static Drawing.Icon CreateIcon()
     {

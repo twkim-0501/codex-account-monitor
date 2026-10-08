@@ -64,6 +64,7 @@ JsonElement Json(string value) => JsonDocument.Parse(value).RootElement.Clone();
 ResetTests.Run(Check);
 ForecastTests.Run(Check);
 CommunityForecastTests.Run(Check);
+CreditGrantNewsTests.Run(Check);
 await ResetFeedTests.RunAsync(Check);
 var account = Json("""{"account":{"type":"chatgpt","email":"test@example.com","planType":"pro"}}""");
 var snapshot = UsageParser.Parse("a", account,

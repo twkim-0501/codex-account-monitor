@@ -66,6 +66,7 @@ public partial class MainWindow
             ToolTip = "클릭하면 짧은 판단 근거와 선택적으로 열 수 있는 원문 링크를 표시합니다" };
         expander.Expanded += (_, _) => { outlookExpanded = true; disclosure.Text = "근거 닫기 ⌃"; QueuePanelSize(); };
         expander.Collapsed += (_, _) => { outlookExpanded = false; disclosure.Text = "근거 보기 ⌄"; QueuePanelSize(); };
+        ForecastExpander = expander;
         return new Border { Background = Brush("#FFFFFF"), BorderBrush = Brush("#E1E8E5"), BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12), Padding = new Thickness(6, 1, 6, 0), Child = expander };
     }
