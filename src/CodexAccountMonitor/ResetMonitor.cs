@@ -24,7 +24,6 @@ public partial class MainWindow
     private ResetMonitorState resetState = new();
     private DateTimeOffset nextPublicCheck;
     private bool publicRefreshing;
-    private bool outlookExpanded;
     private readonly Queue<MonitorNotice> noticeQueue = new();
     private readonly DispatcherTimer noticeTimer = new() { Interval = TimeSpan.FromSeconds(9) };
     private readonly DispatcherTimer resetTimer = new() { Interval = TimeSpan.FromMinutes(1) };
@@ -131,7 +130,7 @@ public partial class MainWindow
     private void RenderResetPanel()
     {
         ResetPanel.Children.Clear();
-        RenderedCreditNews = null; CreditNewsExpander = null; ForecastExpander = null;
+        RenderedCreditNews = null; CreditNewsCard = null; ForecastCard = null;
         ResetPanel.Visibility = settings.WatchPublicResets ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.WatchPublicResets) return;
         var now = DateTimeOffset.UtcNow;

@@ -216,7 +216,9 @@ public static class ResetJudgment
     private static string ExecutionText(string text) => Regex.Replace(text, @"\bsee you(?: again)? tomorrow[.!]?", "", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
 
     public static string KoreanTime(DateTimeOffset value) => value.ToOffset(TimeSpan.FromHours(9)).ToString("MM/dd HH:mm 'KST'", CultureInfo.InvariantCulture);
-    public static List<ResetSignal> Active(ResetOutlook outlook, DateTimeOffset now) => outlook.Signals.Where(s => s.ExpiresAt > now).ToList();
+    public static List<ResetSignal> Active(ResetOutlook outlook, DateTimeOffset now) => outlook.Signals.Where(s => s.ExpiresAt > now &&
+        (s.Level == ResetSignalLevel.Conditional || !outlook.Completions.Any(c => c.Kind == s.Kind && c.At <= now && c.At >= s.PostedAt &&
+            (c.Id == s.Id || s.NotBefore is null || c.At >= s.NotBefore)))).ToList();
     public static List<ResetSignal> MergePartial(ResetOutlook previous, ResetOutlook current, DateTimeOffset now) => Active(current, now)
         .Concat(Active(previous, now).Where(s => current.Signals.All(c => c.Id != s.Id) &&
             (s.Level == ResetSignalLevel.Conditional || !current.Completions.Any(c => c.Kind == s.Kind && c.At >= s.PostedAt && (s.NotBefore is null || c.At >= s.NotBefore)))))

@@ -16,92 +16,72 @@ public partial class MainWindow
     private Border BuildForecastCard(ResetForecast forecast, DateTimeOffset now)
     {
         var outlook = resetState.Outlook;
-        var community = outlook.CommunityForecast;
-        RenderedProbabilityAvailable = community?.IsCurrent(now) == true;
-        var header = new StackPanel();
-        var title = new Grid();
-        title.ColumnDefinitions.Add(new ColumnDefinition());
-        title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        title.Children.Add(Text("다음 특별 리셋 확률", 12, Ink, FontWeights.SemiBold));
-        var (status, color) = ForecastBadge(forecast);
-        var badge = new Border { CornerRadius = new CornerRadius(5), Padding = new Thickness(7, 3, 7, 3),
-            Child = Text(status, 9, color, FontWeights.SemiBold), ToolTip = forecast.Explanation };
-        badge.Background = new SolidColorBrush(Color.FromArgb(22, Brush(color).Color.R, Brush(color).Color.G, Brush(color).Color.B));
-        Grid.SetColumn(badge, 1); title.Children.Add(badge); header.Children.Add(title);
-
-        var gauges = new Grid { Margin = new Thickness(0, 12, 0, 5) };
-        gauges.ColumnDefinitions.Add(new ColumnDefinition()); gauges.ColumnDefinitions.Add(new ColumnDefinition());
-        var day = ProbabilityGauge("24시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within24Hours : null);
-        var twoDays = ProbabilityGauge("48시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within48Hours : null);
-        gauges.Children.Add(day); Grid.SetColumn(twoDays, 1); gauges.Children.Add(twoDays); header.Children.Add(gauges);
-        var attribution = Text(RenderedProbabilityAvailable ? forecast.Kind == ResetSignalKind.CreditGrant
-            ? "한도 리셋 확률 · 초기화권 지급과 별도" : "커뮤니티 확률 · 실험적 추정" : "확률 데이터 확인 중", 9, Soft);
-        attribution.HorizontalAlignment = HorizontalAlignment.Center;
-        attribution.ToolTip = "확률은 codexreset.org에서 가져옵니다. 오른쪽 상태는 앱이 Tibo의 글을 읽고 정합니다. 근거 보기에서 각각의 이유를 확인할 수 있습니다.";
-        header.Children.Add(attribution);
-
-        var timing = new Grid { Margin = new Thickness(0, 11, 0, 0) };
-        timing.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(57) }); timing.ColumnDefinitions.Add(new ColumnDefinition());
-        timing.Children.Add(Text(forecast.Kind == ResetSignalKind.CreditGrant ? "지급 예정" : "예상 시각", 9, Soft, margin: new Thickness(0, 2, 0, 0)));
-        var timingValue = Text(CompactTiming(forecast), 10, Ink, FontWeights.Medium);
-        timingValue.ToolTip = forecast.Timing; Grid.SetColumn(timingValue, 1); timing.Children.Add(timingValue); header.Children.Add(timing);
-
-        var footer = new Grid { Margin = new Thickness(0, 10, 0, 0) };
-        footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var completion = outlook.Completions.Where(c => c.Kind == ResetSignalKind.UsageReset && c.At <= now).MaxBy(c => c.At);
-        var latest = Text(demo ? "가상 예시" : completion is not null ? "최근 리셋 · " + TimeAgo(completion.At, now) : "최근 완료 시각 미확인", 9, Soft);
-        latest.ToolTip = completion is not null ? ResetJudgment.KoreanTime(completion.At) : outlook.Note;
-        footer.Children.Add(latest);
-        var disclosure = Text(outlookExpanded ? "근거 닫기 ⌃" : "근거 보기 ⌄", 10, ForecastGreen, FontWeights.Medium);
-        Grid.SetColumn(disclosure, 1); footer.Children.Add(disclosure); header.Children.Add(footer);
+        var community = outlook.CommunityForecast;
+        RenderedProbabilityAvailable = community?.IsCurrent(now, completion?.At) == true;
+        var content = new StackPanel();
+        var top = new Grid();
+        top.ColumnDefinitions.Add(new ColumnDefinition()); top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        top.Children.Add(Text("다음 특별 리셋", 12, Ink, FontWeights.SemiBold));
+        var (status, color) = ForecastBadge(forecast);
+        var badge = Text(status, 9, color, FontWeights.SemiBold);
+        Grid.SetColumn(badge, 1); top.Children.Add(badge); content.Children.Add(top);
+
+        content.Children.Add(Text(ForecastTime(forecast), 18, Ink, FontWeights.SemiBold, new Thickness(0, 10, 0, 0)));
+        var gauges = new Grid { Margin = new Thickness(0, 11, 0, 0) };
+        gauges.ColumnDefinitions.Add(new ColumnDefinition()); gauges.ColumnDefinitions.Add(new ColumnDefinition());
+        gauges.Children.Add(ProbabilityGauge("24시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within24Hours : null));
+        var twoDays = ProbabilityGauge("48시간 내 리셋 확률", RenderedProbabilityAvailable ? community!.Within48Hours : null);
+        Grid.SetColumn(twoDays, 1); gauges.Children.Add(twoDays); content.Children.Add(gauges);
+
+        var links = new WrapPanel { Margin = new Thickness(0, 2, 0, 0) };
+        links.Children.Add(EvidenceLink("확률 출처 ↗", CommunityResetForecast.SourceUrl));
+        var active = ResetJudgment.Active(outlook, now);
+        foreach (var basis in forecast.Evidence.Where(e => active.Any(s => s.Id == e.Id && s.Kind == ResetSignalKind.UsageReset)).Take(3))
+        {
+            var signal = active.First(s => s.Id == basis.Id);
+            var label = signal.Poll is not null ? "투표" : signal.Level == ResetSignalLevel.Conditional ? "Tibo 약속" : "Tibo 예고";
+            links.Children.Add(EvidenceLink(label + " ↗", signal.SourceUrl));
+        }
+        content.Children.Add(links);
+        if (completion is not null && now - completion.At <= TimeSpan.FromHours(48))
+            content.Children.Add(Text("최근 완료 · " + ResetJudgment.KoreanTime(completion.At), 9, Soft, margin: new Thickness(0, 5, 0, 0)));
         if (forecast.DataWarning is not null || !RenderedProbabilityAvailable)
-        {
-            var warning = Text(forecast.DataWarning is not null ? "● 일부 근거 확인 필요" : "● 확률 갱신 대기", 9, Warning, margin: new Thickness(0, 7, 0, 0));
-            warning.ToolTip = forecast.DataWarning ?? "확률 데이터가 없거나 오래되어 수치를 표시하지 않습니다.";
-            header.Children.Add(warning);
-        }
-
-        var details = BuildForecastReasons(forecast, community, now);
-        var expander = new Expander { Header = header, Content = details, IsExpanded = outlookExpanded,
-            ToolTip = "예상한 이유를 읽고, 필요하면 원문을 열 수 있습니다" };
-        expander.Expanded += (_, _) => { outlookExpanded = true; disclosure.Text = "근거 닫기 ⌃"; QueuePanelSize(); };
-        expander.Collapsed += (_, _) => { outlookExpanded = false; disclosure.Text = "근거 보기 ⌄"; QueuePanelSize(); };
-        ForecastExpander = expander;
-        return new Border { Background = Brush("#FFFFFF"), BorderBrush = Brush("#E1E8E5"), BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12), Padding = new Thickness(6, 1, 6, 0), Child = expander };
+            content.Children.Add(Text("최신 정보 확인 중", 9, Warning, margin: new Thickness(0, 4, 0, 0)));
+        else if (demo) content.Children.Add(Text("가상 예시", 9, Soft, margin: new Thickness(0, 4, 0, 0)));
+        if (forecast.Timing.Contains("1시간"))
+            content.Children.Add(Text("원문 시각에 1시간 차이 가능", 9, Warning, margin: new Thickness(0, 3, 0, 0)));
+        ForecastCard = new Border { Background = Brush("#FFFFFF"), BorderBrush = Brush("#E1E8E5"), BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12), Padding = new Thickness(15, 12, 15, 10), Child = content };
+        return ForecastCard;
     }
 
-    private StackPanel BuildForecastReasons(ResetForecast forecast, CommunityResetForecast? community, DateTimeOffset now)
+    private Button EvidenceLink(string label, string url)
     {
-        var details = new StackPanel();
-        details.Children.Add(new Border { Height = 1, Background = Brush("#E7ECE9"), Margin = new Thickness(0, 0, 0, 10) });
-        details.Children.Add(Text("예측 근거", 11, Ink, FontWeights.SemiBold));
-        if (RenderedProbabilityAvailable && community is not null)
-        {
-            details.Children.Add(ReasonRow("확률", community.Reason, CommunityResetForecast.SourceUrl, demo));
-        }
-        else details.Children.Add(Text("예상 확률은 아직 확인하지 못했습니다. 아래에는 Tibo의 글에서 확인한 내용을 표시합니다.", 10, Soft, margin: new Thickness(0, 7, 0, 0)));
-
-        foreach (var basis in forecast.Evidence.Take(3))
-        {
-            var summary = CompactEvidence(basis, resetState.Outlook, now);
-            details.Children.Add(ReasonRow(basis.RoleLabel, summary, "https://x.com/thsottiaux/status/" + basis.Id, demo));
-        }
-        if (forecast.Evidence.Count == 0) details.Children.Add(Text("지금 확인한 글에는 다음 리셋 예고가 없습니다.", 10, Soft, margin: new Thickness(0, 8, 0, 0)));
-        details.Children.Add(Text(CompactChange(forecast), 10, Soft, margin: new Thickness(0, 10, 0, 0)));
-        var updated = community is not null && RenderedProbabilityAvailable ? "확률 갱신 " + ResetJudgment.KoreanTime(community.UpdatedAt) : "확률 수집 대기";
-        details.Children.Add(Text(demo ? "가상 예시 · 실제 예측이 아닙니다" : updated + " · 소식 10분 간격", 9, Soft, margin: new Thickness(0, 10, 0, 0)));
-        if (forecast.DataWarning is not null)
-            details.Children.Add(Text(forecast.DataWarning + " " + resetState.Outlook.Note, 9, Warning, margin: new Thickness(0, 5, 0, 0)));
-        if (!demo)
-        {
-            var sources = new WrapPanel { Margin = new Thickness(0, 5, 0, 0) };
-            sources.Children.Add(SourceLink("CodexReset ↗", CommunityResetForecast.SourceUrl));
-            sources.Children.Add(SourceLink("공지 출처: Codex Resets ↗", "https://codex-resets.com"));
-            details.Children.Add(sources);
-        }
-        return details;
+        var link = SourceLink(label, url);
+        link.Margin = new Thickness(0, 0, 10, 0);
+        link.IsEnabled = !demo;
+        link.ToolTip = demo ? "가상 예시" : url;
+        return link;
     }
+
+    private static (string, string) ForecastBadge(ResetForecast forecast) => forecast.State switch
+    {
+        ResetForecastState.Announced => ("직접 예고", ForecastGreen),
+        ResetForecastState.Elevated => ("앱 추정", ForecastGreen),
+        ResetForecastState.Watching => ("미확정", "#857140"),
+        ResetForecastState.WaitingForCompletion => ("확인 대기", "#857140"),
+        ResetForecastState.Gathering => ("확인 중", "#82858A"),
+        _ => ("새 예고 대기", "#82858A")
+    };
+
+    private static string ForecastTime(ResetForecast forecast) => forecast.State switch
+    {
+        ResetForecastState.Elevated or ResetForecastState.Announced => forecast.Timing.Split(" · ")[0],
+        ResetForecastState.WaitingForCompletion => "예정 시각 지남 · 완료 확인 중",
+        ResetForecastState.Gathering => "예상 시각 확인 중",
+        _ => "다음 리셋 시각 미정"
+    };
 
     private static StackPanel ProbabilityGauge(string label, double? value)
     {
@@ -112,7 +92,6 @@ public partial class MainWindow
         ring.Children.Add(new Ellipse { Stroke = Brush("#EDF2EF"), StrokeThickness = 7, Margin = new Thickness(5) });
         if (value is > 0)
         {
-            // Clockwise from twelve o'clock. The value is a source estimate, never a poll vote share.
             const double radius = 34.5;
             var angle = Math.Min(value.Value, 99.9999) / 100 * 2 * Math.PI;
             var geometry = new PathGeometry([new PathFigure(new Point(43, 8.5),
@@ -125,62 +104,5 @@ public partial class MainWindow
         ring.Children.Add(number); panel.Children.Add(ring);
         System.Windows.Automation.AutomationProperties.SetName(panel, label + (value is { } v ? $" 리셋 확률 {v:0}%" : " 확률 미확인"));
         return panel;
-    }
-
-    private static Grid ReasonRow(string role, string summary, string url, bool fictional)
-    {
-        var row = new Grid { Margin = new Thickness(0, 9, 0, 0) };
-        row.ColumnDefinitions.Add(new ColumnDefinition()); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var body = new StackPanel { Margin = new Thickness(0, 0, 8, 0) };
-        body.Children.Add(Text(role, 9, ForecastGreen, FontWeights.Medium)); body.Children.Add(Text(summary, 10, Ink, margin: new Thickness(0, 3, 0, 0)));
-        row.Children.Add(body);
-        var link = SourceLink(role == "확률" ? "계산 ↗" : "원문 ↗", url); link.VerticalAlignment = VerticalAlignment.Top;
-        link.IsEnabled = !fictional; link.ToolTip = fictional ? "가상 예시이므로 실제 원문이 없습니다" : url;
-        Grid.SetColumn(link, 1); row.Children.Add(link); return row;
-    }
-
-    private static (string, string) ForecastBadge(ResetForecast forecast) => forecast.State switch
-    {
-        ResetForecastState.Announced => (forecast.Kind == ResetSignalKind.CreditGrant ? "초기화권 예고" : "리셋 예고", ForecastGreen),
-        ResetForecastState.Elevated => ("가능성 ↑", ForecastGreen),
-        ResetForecastState.Watching => ("단서 관찰", "#857140"),
-        ResetForecastState.WaitingForCompletion => ("완료 확인 중", "#857140"),
-        ResetForecastState.Gathering => ("수집 중", "#82858A"),
-        _ => (forecast.DataWarning is null ? "단서 대기" : "판단 보류", "#82858A")
-    };
-    private static string CompactTiming(ResetForecast forecast) => forecast.State switch
-    {
-        ResetForecastState.Elevated => forecast.Timing.Replace(" · 앱의 추정", " · 추정"),
-        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => forecast.Timing.Replace(" · 완료 별도 확인", "").Replace(" · 원문의 미국 서부 시간 표기에 따라 1시간 차이 가능", " · 원문 시차 1시간 주의"),
-        ResetForecastState.Gathering => "확인 중",
-        _ => "새 예고 대기"
-    };
-    private static string CompactEvidence(ForecastEvidence basis, ResetOutlook outlook, DateTimeOffset now)
-    {
-        var signal = outlook.Signals.FirstOrDefault(s => s.Id == basis.Id);
-        if (signal?.Poll is { } poll)
-        {
-            var total = poll.Choices.Sum(c => Math.Max(0d, c.Votes ?? 0));
-            if (total > 0 && poll.Choices.All(c => c.Votes is >= 0))
-                return basis.Summary;
-            return "투표에 ‘리셋’ 항목이 있지만 몇 표를 받았는지는 확인하지 못했습니다.";
-        }
-        if (signal?.Level == ResetSignalLevel.Conditional) return signal.Reason;
-        var context = outlook.CurrentContext.FirstOrDefault(c => c.Id == basis.Id);
-        if (context?.Kind == ResetCurrentContextKind.Completion) return "최근 리셋은 이미 끝났습니다. 그 전에 나온 투표와 힌트는 다음 리셋을 예상할 때 쓰지 않습니다.";
-        if (context?.Kind == ResetCurrentContextKind.Improvement) return "Tibo가 Codex 개선 소식을 알렸습니다. 리셋이 취소됐는지는 이 글만으로 알 수 없습니다.";
-        return basis.Summary;
-    }
-    private static string CompactChange(ResetForecast forecast) => forecast.State switch
-    {
-        ResetForecastState.Announced or ResetForecastState.WaitingForCompletion => "완료 공지나 내 계정의 한도 변화를 확인하면 표시를 바꿉니다.",
-        ResetForecastState.Elevated => "투표 결과가 뒤집히거나 새 예고가 나오면 예상을 다시 검토합니다.",
-        _ => "새 투표나 답글, 리셋 예고가 나오면 다시 확인합니다."
-    };
-    private static string TimeAgo(DateTimeOffset at, DateTimeOffset now)
-    {
-        var elapsed = now - at;
-        return elapsed.TotalMinutes < 1 ? "방금" : elapsed.TotalHours < 1 ? $"{(int)elapsed.TotalMinutes}분 전"
-            : elapsed.TotalDays < 1 ? $"{(int)elapsed.TotalHours}시간 전" : $"{(int)elapsed.TotalDays}일 전";
     }
 }

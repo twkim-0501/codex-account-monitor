@@ -317,12 +317,6 @@ public partial class MainWindow : Window
         if (ResetPanel.Children.Count > 0)
         {
             CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
-            var forecastDetails = ForecastExpander!;
-            forecastDetails.IsExpanded = true;
-            await SettlePanelLayoutAsync();
-            CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-reasons.png"));
-            forecastDetails.IsExpanded = false;
-            await SettlePanelLayoutAsync();
         }
         checks["collapsedPanelFitsOrScreenLimited"] = ScrollOnlyAtHeightLimit();
         panelLayouts["collapsed"] = PanelLayoutState();
@@ -391,7 +385,8 @@ public partial class MainWindow : Window
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), miniAccounts);
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview-dark.png"), miniAccounts, lightTheme: false);
         if (demo) SourceWindow.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "add-ssh-preview.png"), store.DirectoryPath);
-        if (CreditNewsExpander?.Parent is Border creditCard) CapturePanelElement(creditCard, System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "credit-news-card.png"));
+        if (CreditNewsCard is { } creditCard) CapturePanelElement(creditCard, System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "credit-news-card.png"));
+        if (ForecastCard is not null) CaptureForecastCard(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "reset-cards.png"));
     }
     private static Drawing.Icon CreateIcon()
     {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+- Put credit payout times and next reset times first, with source links directly on each card. Removed explanatory paragraphs, expanders, and distribution-step indicators from the reset cards.
+- Retired cached one-off reset predictions after a confirmed completion, preserving separately scheduled future resets and continuing programs. Probability estimates from before a completed reset are hidden until a newer source update.
+- Displayed actual credit receipt times instead of fulfilled future deadlines. Retained receipt amounts, account names, and account-level held-credit details.
+
 ## 1.5.1
 
 - Rewrote credit-grant announcements, forecast evidence, and explanatory tooltips in plain Korean. Named Tibo and described what each post says, what is confirmed for each account, and what remains unknown.

@@ -21,5 +21,9 @@ internal static class CommunityForecastTests
         check(ResetFeedParser.CommunityForecast("forecastHistory:[{score24h:99,score48h:100}]", now) is null, "missing current snapshot never falls back to history");
         var restored = JsonSerializer.Deserialize<ResetOutlook>(JsonSerializer.Serialize(new ResetOutlook { CommunityForecast = parsed }));
         check(restored?.CommunityForecast == parsed, "sourced probabilities and freshness survive state persistence");
+        check(parsed is not null && !parsed.IsCurrent(now, parsed.UpdatedAt.AddMinutes(1)),
+            "a newly completed reset expires probability estimates made before that reset");
+        check(parsed is not null && parsed.IsCurrent(now, parsed.UpdatedAt.AddMinutes(-1)),
+            "probability estimates updated after the reset are valid for the next event");
     }
 }

@@ -60,5 +60,21 @@ internal static class ForecastTests
         check(ResetForecasting.CurrentContext(posts, [completed], now.AddDays(2)).Count == 0, "context ages out without becoming an announcement archive");
         outlook = JsonSerializer.Deserialize<ResetOutlook>(JsonSerializer.Serialize(outlook))!;
         check(ResetForecasting.Build(outlook, now).Evidence.Any(e => e.Text.Contains("propagated")), "in-app original evidence survives cache serialization");
+        outlook.Signals = [promise, poll]; outlook.Completions = [completed];
+        check(ResetForecasting.Build(outlook, now).State == ResetForecastState.Weak && ResetJudgment.Active(outlook, now).Single().Id == promise.Id,
+            "a cached completed reset expires its old poll forecast while retaining the ongoing program");
+        outlook.Signals = [announced with { PostedAt = now.AddHours(-2), DueAt = now.AddHours(3), NotBefore = now.AddHours(2) }];
+        check(ResetForecasting.Build(outlook, now).State == ResetForecastState.Announced,
+            "an earlier reset cannot expire a separately scheduled future announcement");
+        outlook.Completions = [completed with { Kind = ResetSignalKind.CreditGrant }];
+        outlook.Signals = [announced with { PostedAt = now.AddHours(-2), NotBefore = null }];
+        check(ResetForecasting.Build(outlook, now).State == ResetForecastState.Announced,
+            "a credit payout cannot expire a quota-reset forecast");
+        outlook.Completions = [completed with { At = now.AddHours(1) }];
+        check(ResetForecasting.Build(outlook, now).State == ResetForecastState.Announced,
+            "a future-dated completion cannot expire a current forecast");
+        outlook.Completions = [completed with { Id = announced.Id }];
+        check(ResetForecasting.Build(outlook, now).State == ResetForecastState.Weak,
+            "completion of the original announcement expires its cached prediction even with the same post ID");
     }
 }
