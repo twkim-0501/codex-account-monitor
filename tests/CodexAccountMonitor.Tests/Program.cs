@@ -2,6 +2,12 @@ using System.Diagnostics;
 using System.Text.Json;
 using CodexAccountMonitor.Core;
 
+if (args.Length == 2 && args[0] == "--fake-account-server")
+{
+    await AccountConnectionTests.RunServerAsync(args[1]);
+    return;
+}
+
 if (args.Contains("--fake-server"))
 {
     string? input;
@@ -66,6 +72,7 @@ ForecastTests.Run(Check);
 CommunityForecastTests.Run(Check);
 CreditGrantNewsTests.Run(Check);
 WeeklyUsageBudgetTests.Run(Check);
+await AccountConnectionTests.RunAsync(Check);
 await ResetFeedTests.RunAsync(Check);
 var account = Json("""{"account":{"type":"chatgpt","email":"test@example.com","planType":"pro"}}""");
 var snapshot = UsageParser.Parse("a", account,

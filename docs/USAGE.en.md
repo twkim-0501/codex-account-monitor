@@ -50,6 +50,8 @@ Choose **로컬 · 별도 계정으로 로그인**, enter a display name, and cl
 
 The monitor creates a separate local profile and uses Windows credential storage, preserving the current Codex login. These profiles do not automatically change the account list in other Codex apps.
 
+The default local connection follows the current Codex login on this PC; its display name does not pin an account. To keep monitoring an account after switching the desktop login, use a separate local login profile or an SSH connection already signed into that account. Local credential-file changes reload the monitor connection on its next read. Authentication failures also trigger one reconnect; persistent failures remain failed reads and do not replace the quota cache with an empty successful snapshot.
+
 ## Read the widget
 
 - Percentages show **remaining quota**, not percentage used or exact remaining token counts. With several quota windows, the mini widget shows the lowest remaining percentage.

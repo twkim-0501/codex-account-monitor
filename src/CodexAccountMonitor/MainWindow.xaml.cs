@@ -174,6 +174,7 @@ public partial class MainWindow : Window
         FileNotFoundException => "Codex 실행파일을 찾지 못했습니다 · 경로 지정 필요",
         ArgumentException => "연결 설정을 확인하세요 · SSH 별명/실행파일 경로",
         InvalidOperationException => "로그인이 필요하거나 연결 설정이 올바르지 않습니다",
+        RpcException rpcError when AccountConnection.IsAuthenticationError(rpcError) => "로그인 인증 실패 · 해당 계정으로 다시 로그인",
         RpcException => "계정 조회 실패 · Codex 로그인/버전 확인",
         _ => "연결 종료 · SSH 연결/실행파일/로그인 확인"
     };

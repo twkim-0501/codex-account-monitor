@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1
+
+- Reload local account connections when the credential file changes, including desktop login switches, token renewal, and logout. Reject reads that race with a login change rather than combining an old identity with new quota.
+- Reconnect once after an authentication error in account, quota, or usage reads. Persistent authentication failures now remain failed reads instead of overwriting the cache with an empty, seemingly healthy snapshot. Unsupported optional methods retain their existing behavior.
+- Added connection regression checks and clarified how to keep monitoring an account after switching the desktop login.
+
 ## 1.7.0
 
 - Added weekly remaining quota, time until regular reset, and a daily quota budget to every account row. Pacing badges compare used quota with the elapsed fraction of the server-provided seven-day period.
