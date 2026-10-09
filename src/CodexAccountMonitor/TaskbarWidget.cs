@@ -12,7 +12,7 @@ using System.Windows.Threading;
 
 namespace CodexAccountMonitor;
 
-public sealed record MiniAccount(string Name, double? Remaining, bool Fresh, bool Blocked, string? ShortName = null);
+public sealed record MiniAccount(string Name, double? Remaining, bool Fresh, bool Blocked, string? ShortName = null, bool Primary = false);
 
 /// <summary>A small native child of Explorer. The WPF detail panel remains a separate window.</summary>
 public sealed class TaskbarWidget : IDisposable

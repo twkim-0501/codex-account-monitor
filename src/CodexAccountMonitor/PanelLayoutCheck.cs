@@ -31,7 +31,10 @@ public partial class MainWindow
             VisualDescendants<TextBlock>(visibleHeader).Count(t => t.Text.EndsWith('%')) == 2;
         checks["defaultForecastCardIsCompact"] = visibleHeader.ActualHeight <= 260 &&
             !VisualDescendants<TextBlock>(visibleHeader).Any(t => t.Text == RenderedForecast?.Explanation);
+        checks["primaryAccountHasVisibleBadgeAndLeadsWidget"] = ((Border)Cards.Children[0]).Tag is "primary-account" &&
+            VisualDescendants<TextBlock>((Border)Cards.Children[0]).Any(t => t.Text == "PRIMARY") && MiniAccounts()[0].Primary;
         Capture(System.IO.Path.Combine(directory, "forecast-visible.png"));
+        CapturePanelElement((Border)Cards.Children[0], System.IO.Path.Combine(directory, "primary-card.png"));
         CaptureForecastCard(System.IO.Path.Combine(directory, "forecast-card.png"));
 
         var first = (Expander)((Border)Cards.Children[0]).Child;
@@ -81,6 +84,7 @@ public partial class MainWindow
         Width = 360;
         await SettlePanelLayoutAsync();
         checks["widthChangeIncludesWrappedText"] = AccountScroll.ExtentHeight >= wideExtent && ScrollOnlyAtHeightLimit();
+        checks["primaryBadgeFitsNarrowAccountHeader"] = VisualDescendants<TextBlock>((Border)Cards.Children[0]).Single(t => t.Text == "PRIMARY").ActualWidth > 20;
         layouts["narrowWithNote"] = PanelLayoutState();
 
         snapshots[source.Id].UsageNote = originalNote;
@@ -164,6 +168,17 @@ public partial class MainWindow
         await SettlePanelLayoutAsync();
         Capture(System.IO.Path.Combine(directory, "reset-and-credit.png"));
         foreach (Border card in Cards.Children) ((Expander)card.Child).IsExpanded = true;
+
+        var originalIdentity = desktopIdentity;
+        var alternative = settings.Sources[1];
+        desktopIdentity = snapshots[alternative.Id]; RenderCards(); await SettlePanelLayoutAsync();
+        checks["desktopSwitchMovesPrimaryAndPreservesExpansion"] = DisplayOrder().Sources[0].Id == alternative.Id && MiniAccounts()[0].Primary &&
+            DisplayOrder().Sources.Zip(Cards.Children.OfType<Border>()).All(pair => ((Expander)pair.Second.Child).IsExpanded);
+        Capture(System.IO.Path.Combine(directory, "primary-switched.png"));
+        desktopIdentity = null; RenderCards(); await SettlePanelLayoutAsync();
+        checks["unknownDesktopIdentityRemovesOldPrimary"] = !MiniAccounts().Any(a => a.Primary) &&
+            !Cards.Children.OfType<Border>().Any(b => b.Tag is "primary-account");
+        desktopIdentity = originalIdentity; RenderCards(); await SettlePanelLayoutAsync();
 
         // A short viewport exercises overflow even on a large development display.
         MaxHeight = Math.Max(MinHeight, Math.Min(460, SystemParameters.WorkArea.Height - 16));

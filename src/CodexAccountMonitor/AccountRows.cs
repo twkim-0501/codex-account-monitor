@@ -14,7 +14,7 @@ public partial class MainWindow
     private readonly HashSet<string> expandedAccounts = [];
     private const string Ink = "#30323B", Soft = "#90919B", Warning = "#AE713B";
 
-    private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate)
+    private Border BuildCard(AccountSource source, AccountSnapshot? data, bool duplicate, bool primary = false)
     {
         var worst = data?.Windows.OrderBy(x => x.RemainingPercent).FirstOrDefault();
         var budgets = WeeklyUsageBudget.Build(data, healthy.Contains(source.Id), DateTimeOffset.UtcNow);
@@ -26,7 +26,18 @@ public partial class MainWindow
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var identity = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        identity.Children.Add(Text(source.Name, 14, Ink, FontWeights.SemiBold));
+        var title = new Grid();
+        title.ColumnDefinitions.Add(new ColumnDefinition());
+        title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        title.Children.Add(Text(source.Name, 14, Ink, FontWeights.SemiBold));
+        if (primary)
+        {
+            var badge = new Border { Background = Brush("#DDEEF8"), CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(5, 2, 5, 2), Margin = new Thickness(7, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "현재 데스크톱 앱에 로그인된 계정", Child = Text("PRIMARY", 8, "#39708F", FontWeights.SemiBold) };
+            Grid.SetColumn(badge, 1); title.Children.Add(badge);
+        }
+        identity.Children.Add(title);
         identity.Children.Add(Text($"{(data?.Plan ?? "Codex").ToUpperInvariant()} · {(source.Kind == "ssh" ? "서버" : "로컬")}", 10, Soft, margin: new Thickness(0, 4, 0, 0)));
         if (data?.ResetCredits is { } available)
         {
@@ -48,6 +59,7 @@ public partial class MainWindow
         Grid.SetColumn(percentage, 1); header.Children.Add(percentage);
         var edit = new Button { Content = "···", ToolTip = "계정 연결 편집", Width = 26, Height = 28, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
         edit.Click += (_, e) => { e.Handled = true; EditSource(source); };
+        if (source.Id == currentDesktop.Id) edit.Visibility = Visibility.Collapsed;
         Grid.SetColumn(edit, 2); header.Children.Add(edit);
         var budgetSummary = BuildWeeklyBudgetSummary(primaryBudget, budgets.Count > 1);
         Grid.SetRow(budgetSummary, 1); Grid.SetColumnSpan(budgetSummary, 3); header.Children.Add(budgetSummary);
@@ -82,7 +94,11 @@ public partial class MainWindow
         var expander = new Expander { Header = header, Content = details, IsExpanded = expandedAccounts.Contains(source.Id), ToolTip = "계정을 클릭하면 주간 사용 속도와 상세 정보를 펼칩니다" };
         expander.Expanded += (_, _) => { expandedAccounts.Add(source.Id); QueuePanelSize(); };
         expander.Collapsed += (_, _) => { expandedAccounts.Remove(source.Id); QueuePanelSize(); };
-        return new Border { BorderBrush = Brush("#E8E8EE"), BorderThickness = new Thickness(0, 0, 0, 1), Padding = new Thickness(0, 3, 0, 3), Child = expander };
+        return new Border { Tag = primary ? "primary-account" : "account",
+            Background = primary ? Brush("#F0F7FC") : null, BorderBrush = Brush(primary ? "#D0E4F0" : "#E8E8EE"),
+            BorderThickness = primary ? new Thickness(1) : new Thickness(0, 0, 0, 1), CornerRadius = new CornerRadius(primary ? 9 : 0),
+            Margin = primary ? new Thickness(0, 3, 0, 7) : new Thickness(0),
+            Padding = primary ? new Thickness(8, 8, 8, 7) : new Thickness(0, 3, 0, 3), Child = expander };
     }
 
     private static void AddCreditDetails(StackPanel details, AccountSnapshot data)

@@ -9,7 +9,7 @@ public sealed class AccountConnection(AccountSource source, Func<ProcessStartInf
     private readonly SemaphoreSlim gate = new(1, 1);
     private (bool Exists, long Length, long Written)? authRevision;
 
-    private (bool Exists, long Length, long Written)? LocalAuthRevision()
+    public (bool Exists, long Length, long Written)? LocalAuthRevision()
     {
         if (source.Kind != "local") return null;
         var home = Environment.ExpandEnvironmentVariables(source.CodexHome ?? Environment.GetEnvironmentVariable("CODEX_HOME")
@@ -36,14 +36,24 @@ public sealed class AccountConnection(AccountSource source, Func<ProcessStartInf
         catch { await candidate.DisposeAsync(); throw; }
     }
 
-    public async Task<AccountSnapshot> ReadAsync(CancellationToken token)
+    public Task<AccountSnapshot> ReadAsync(CancellationToken token) => ReadWithRecoveryAsync(ReadCurrentAsync, token);
+
+    // The desktop identity poll does not fetch quota or token activity.
+    public Task<AccountSnapshot> ReadIdentityAsync(CancellationToken token) => ReadWithRecoveryAsync(async cancel =>
+    {
+        var account = await ReadAccountAsync(cancel);
+        VerifyLocalAuthRevision();
+        return UsageParser.Parse(source.Id, account, null, null);
+    }, token);
+
+    private async Task<AccountSnapshot> ReadWithRecoveryAsync(Func<CancellationToken, Task<AccountSnapshot>> read, CancellationToken token)
     {
         await gate.WaitAsync(token);
         try
         {
             for (var attempt = 0; ; attempt++)
             {
-                try { return await ReadCurrentAsync(token); }
+                try { return await read(token); }
                 catch (RpcException error) when (attempt == 0 && IsAuthenticationError(error)) { await ResetAsync(); }
                 catch (AccountLoginRequiredException) when (attempt == 0) { await ResetAsync(); }
             }
@@ -56,18 +66,29 @@ public sealed class AccountConnection(AccountSource source, Func<ProcessStartInf
         finally { gate.Release(); }
     }
 
-    private async Task<AccountSnapshot> ReadCurrentAsync(CancellationToken token)
+    private async Task<JsonElement> ReadAccountAsync(CancellationToken token)
     {
         var client = await EnsureAsync(token);
         var account = await client.CallAsync("account/read", new { refreshToken = false }, token);
         if (UsageParser.Get(account, "account").ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
             throw new AccountLoginRequiredException();
+        return account;
+    }
+
+    private void VerifyLocalAuthRevision()
+    {
+        if (LocalAuthRevision() != authRevision) throw new AccountLoginRequiredException();
+    }
+
+    private async Task<AccountSnapshot> ReadCurrentAsync(CancellationToken token)
+    {
+        var account = await ReadAccountAsync(token);
+        var client = rpc!;
         var limitsTask = ReadOptionalAsync(client, "account/rateLimits/read", token);
         var usageTask = ReadOptionalAsync(client, "account/usage/read", token);
         await Task.WhenAll(limitsTask, usageTask);
         // A login can change while the two requests are in flight. Never combine two identities.
-        var revision = LocalAuthRevision();
-        if (revision != authRevision) { await ResetAsync(); throw new AccountLoginRequiredException(); }
+        VerifyLocalAuthRevision();
         var snapshot = UsageParser.Parse(source.Id, account, limitsTask.Result.Result, usageTask.Result.Result);
         snapshot.LimitsNote = limitsTask.Result.Note;
         snapshot.UsageNote = usageTask.Result.Note;

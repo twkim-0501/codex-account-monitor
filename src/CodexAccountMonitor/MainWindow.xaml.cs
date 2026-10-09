@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         Top = Math.Max(area.Top + 12, area.Bottom - Height - 12);
         if (demo) LoadDemo(demoAccounts);
         else foreach (var snapshot in store.LoadCache()) snapshots[snapshot.SourceId] = snapshot;
+        InitializePrimaryAccount();
         InitializeResetMonitor();
         if (screenshotPath is null && !layoutCheck)
         {
@@ -133,6 +134,7 @@ public partial class MainWindow : Window
         try
         {
             var publicTask = RefreshPublicResetsAsync();
+            var primaryTask = RefreshPrimaryAccountAsync();
             var enabled = settings.Sources.Where(x => x.Enabled).ToArray();
             using var parallelism = new SemaphoreSlim(3);
             var tasks = enabled.Select(async source =>
@@ -156,6 +158,7 @@ public partial class MainWindow : Window
                 finally { parallelism.Release(); RenderCards(); }
             });
             await Task.WhenAll(tasks);
+            await primaryTask;
             await publicTask;
             if (screenshotPath is null)
                 try { store.SaveCache(snapshots.Values.Where(x => settings.Sources.Any(s => s.Id == x.SourceId))); } catch (IOException) { FooterText.Text = "캐시 저장 실패 · 현재 조회는 정상"; }
@@ -194,16 +197,17 @@ public partial class MainWindow : Window
     {
         if (exiting) return;
         Cards.Children.Clear();
-        var sources = settings.Sources.Where(x => x.Enabled).ToArray();
-        SummaryText.Text = demo ? $"{sources.Length}개 계정 · 예시 데이터" : $"{sources.Length}개 계정 · {healthy.Count(x => sources.Any(s => s.Id == x))}개 연결됨";
+        var order = DisplayOrder();
+        var sources = order.Sources;
+        SummaryText.Text = demo ? $"{sources.Count}개 계정 · 예시 데이터" : $"{sources.Count}개 계정 · {healthy.Count(x => sources.Any(s => s.Id == x))}개 연결됨";
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var source in sources)
         {
             snapshots.TryGetValue(source.Id, out var snapshot);
             var duplicate = snapshot?.IdentityKey is { } identity && !seen.Add(identity);
-            Cards.Children.Add(BuildCard(source, snapshot, duplicate));
+            Cards.Children.Add(BuildCard(source, snapshot, duplicate, source.Id == order.PrimarySourceId));
         }
-        if (sources.Length == 0) Cards.Children.Add(Text("+ 계정을 눌러 로컬 또는 SSH 계정을 추가하세요.", 12, "#90919B"));
+        if (sources.Count == 0) Cards.Children.Add(Text("+ 계정을 눌러 로컬 또는 SSH 계정을 추가하세요.", 12, "#90919B"));
         RenderResetPanel();
         SizePanel();
         QueuePanelSize();
@@ -213,12 +217,7 @@ public partial class MainWindow : Window
                 ? $"{source.Name}: {data.Windows.Min(w => w.RemainingPercent):0}%" : $"{source.Name}: —"));
             tray.Text = ("Codex · " + tooltip)[..Math.Min(63, 8 + tooltip.Length)];
         }
-        miniWidget?.Update(sources.Select(source =>
-        {
-            snapshots.TryGetValue(source.Id, out var data);
-            return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
-                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false, source.ShortName);
-        }).ToArray());
+        miniWidget?.Update(MiniAccounts());
     }
 
     private static SolidColorBrush Brush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
@@ -288,9 +287,10 @@ public partial class MainWindow : Window
     internal async Task ExitAsync(int exitCode = 0)
     {
         if (exiting) return;
-        exiting = true; timer.Stop(); resetTimer.Stop(); noticeTimer.Stop(); lifetime.Cancel();
-        while (refreshing || publicRefreshing) await Task.Delay(50);
+        exiting = true; timer.Stop(); resetTimer.Stop(); noticeTimer.Stop(); primaryTimer.Stop(); lifetime.Cancel();
+        while (refreshing || publicRefreshing || primaryRefreshing) await Task.Delay(50);
         foreach (var connection in connections.Values) await connection.DisposeAsync();
+        if (desktopConnection is not null) await desktopConnection.DisposeAsync();
         resetFeed.Dispose();
         miniWidget?.Dispose(); tray?.Dispose(); lifetime.Dispose(); Close(); Application.Current.Shutdown(exitCode);
     }
@@ -313,8 +313,11 @@ public partial class MainWindow : Window
         tray?.ContextMenuStrip?.Close();
         widget.SendTestClick(); await Task.Delay(500);
         checks["miniClickOpensDetails"] = IsVisible;
-        checks["allAccountsListed"] = Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
-        checks["threeAccountsAndOverflowBounded"] = widget.VisibleAccounts == Math.Min(3, settings.Sources.Count(x => x.Enabled)) && widget.OverflowAccounts == Math.Max(0, settings.Sources.Count(x => x.Enabled) - 3) && widget.ScreenBounds.Width / (GetDpiForWidget(widget.Handle) / 96d) <= 340.5;
+        checks["allAccountsListed"] = Cards.Children.Count == DisplayOrder().Sources.Count;
+        checks["threeAccountsAndOverflowBounded"] = widget.VisibleAccounts == Math.Min(3, DisplayOrder().Sources.Count) && widget.OverflowAccounts == Math.Max(0, DisplayOrder().Sources.Count - 3) && widget.ScreenBounds.Width / (GetDpiForWidget(widget.Handle) / 96d) <= 340.5;
+        checks["desktopPrimaryLeadsBothViews"] = DisplayOrder().PrimarySourceId is null ||
+            (DisplayOrder().Sources[0].Id == DisplayOrder().PrimarySourceId && MiniAccounts()[0].Primary &&
+                ((Border)Cards.Children[0]).Tag is "primary-account");
         UpdateLayout(); Capture(System.IO.Path.Combine(directory, "details.png"));
         if (ResetPanel.Children.Count > 0)
         {
@@ -343,7 +346,7 @@ public partial class MainWindow : Window
         {
             checks["overflowBadgeReceivesPointer"] = widget.HitTestOverflow();
             widget.SendTestClick(overflowBadge: true); await Task.Delay(300);
-            checks["overflowBadgeOpensAllAccounts"] = IsVisible && Cards.Children.Count == settings.Sources.Count(x => x.Enabled);
+            checks["overflowBadgeOpensAllAccounts"] = IsVisible && Cards.Children.Count == DisplayOrder().Sources.Count;
             Hide();
         }
         widget.SendTestClick(); await Task.Delay(300);
@@ -378,12 +381,7 @@ public partial class MainWindow : Window
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         using var stream = File.Create(path); encoder.Save(stream);
-        var miniAccounts = settings.Sources.Where(x => x.Enabled).Select(source =>
-        {
-            snapshots.TryGetValue(source.Id, out var data);
-            return new MiniAccount(source.Name, data?.Windows.Count > 0 ? data.Windows.Min(x => x.RemainingPercent) : null,
-                healthy.Contains(source.Id), data?.OrdinaryUsageAllowed == false, source.ShortName);
-        }).ToArray();
+        var miniAccounts = MiniAccounts();
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview.png"), miniAccounts);
         TaskbarWidget.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "mini-preview-dark.png"), miniAccounts, lightTheme: false);
         if (demo) SourceWindow.SavePreview(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "add-ssh-preview.png"), store.DirectoryPath);

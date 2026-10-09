@@ -134,7 +134,7 @@ public partial class MainWindow
         ResetPanel.Visibility = settings.WatchPublicResets ? Visibility.Visible : Visibility.Collapsed;
         if (!settings.WatchPublicResets) return;
         var now = DateTimeOffset.UtcNow;
-        RenderedCreditNews = CreditGrantNewsBuilder.Build(resetState.Outlook, settings.Sources.Where(s => s.Enabled)
+        RenderedCreditNews = CreditGrantNewsBuilder.Build(resetState.Outlook, DisplayOrder().Sources
             .Select(s => new NamedAccountSnapshot(s.Name, snapshots.GetValueOrDefault(s.Id))), now);
         if (RenderedCreditNews is { } creditNews) ResetPanel.Children.Add(BuildCreditGrantCard(creditNews));
         var quotaOutlook = new ResetOutlook

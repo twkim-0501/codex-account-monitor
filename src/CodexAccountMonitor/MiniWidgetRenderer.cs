@@ -41,6 +41,11 @@ public static class MiniWidgetRenderer
         using var labelInk = new SolidBrush(lightTheme ? Color.FromArgb(190, 59, 62, 73) : Color.FromArgb(205, 226, 226, 235));
         using var valueInk = new SolidBrush(lightTheme ? Color.FromArgb(245, 42, 45, 55) : Color.FromArgb(250, 245, 245, 250));
         using var warning = new SolidBrush(lightTheme ? Color.FromArgb(255, 174, 110, 45) : Color.FromArgb(255, 222, 177, 107));
+        using var primaryChip = new SolidBrush(lightTheme ? Color.FromArgb(255, 225, 240, 250) : Color.FromArgb(255, 37, 59, 78));
+        using var primaryLine = new Pen(lightTheme ? Color.FromArgb(255, 189, 220, 236) : Color.FromArgb(255, 85, 127, 157), 0.8f * s);
+        using var primaryMarker = new SolidBrush(lightTheme ? Color.FromArgb(255, 95, 149, 181) : Color.FromArgb(255, 133, 187, 221));
+        using var primaryLabel = new SolidBrush(lightTheme ? Color.FromArgb(255, 53, 93, 118) : Color.FromArgb(255, 200, 228, 247));
+        using var primaryValue = new SolidBrush(lightTheme ? Color.FromArgb(255, 36, 70, 95) : Color.FromArgb(255, 235, 247, 255));
         using var nameFont = new Font("Segoe UI", 10.5f * s, FontStyle.Regular, GraphicsUnit.Pixel);
         using var valueFont = new Font("Segoe UI", 11.5f * s, FontStyle.Bold, GraphicsUnit.Pixel);
         using var staleFont = new Font("Malgun Gothic", 9.5f * s, FontStyle.Regular, GraphicsUnit.Pixel);
@@ -59,10 +64,17 @@ public static class MiniWidgetRenderer
                 continue;
             }
             var account = accounts[i];
+            if (account.Primary)
+            {
+                graphics.FillPath(primaryChip, shape); graphics.DrawPath(primaryLine, shape);
+                graphics.FillEllipse(primaryMarker, left + 6.5f * s, top + height / 2 - 1.75f * s, 3.5f * s, 3.5f * s);
+            }
             var stale = !account.Fresh && account.Remaining.HasValue;
             var value = account.Blocked ? "제한" : account.Remaining is { } remaining ? $"{(stale ? "이전 " : "")}{remaining:0}%" : "—";
-            graphics.DrawString(Label(account), nameFont, labelInk, new RectangleF(left + 8 * s, top, (stale ? 25 : 38) * s, height), labelFormat);
-            graphics.DrawString(value, stale ? staleFont : valueFont, account.Blocked || account.Remaining <= 10 ? warning : valueInk,
+            var labelOffset = account.Primary ? 14 : 8;
+            graphics.DrawString(Label(account), nameFont, account.Primary ? primaryLabel : labelInk,
+                new RectangleF(left + labelOffset * s, top, (stale ? 25 - (labelOffset - 8) : 38) * s, height), labelFormat);
+            graphics.DrawString(value, stale ? staleFont : valueFont, account.Blocked || account.Remaining <= 10 ? warning : account.Primary ? primaryValue : valueInk,
                 new RectangleF(left + (stale ? 36 : 49) * s, top, (stale ? 48 : 35) * s, height), valueFormat);
         }
         if (accounts.Count > 3)

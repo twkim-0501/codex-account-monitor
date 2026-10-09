@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Put the current desktop login first in both the detail panel and taskbar widget. Identify it through account information and match registered local/SSH connections by full email without changing their saved order or authentication sources.
+- Highlight the primary account with a soft blue card and PRIMARY badge; use a blue chip, outline, and dot in the mini widget, with colors for light and dark themes. Low-quota warnings retain their own color.
+- Detect local credential-file changes every two seconds and check desktop identity at least every thirty seconds. Show an unregistered desktop account automatically without creating a persistent connection, and remove the old primary designation when the current identity is unknown.
+- Added primary selection, identity-only polling, login-switch, and layout regression checks.
+
 ## 1.7.1
 
 - Reload local account connections when the credential file changes, including desktop login switches, token renewal, and logout. Reject reads that race with a login change rather than combining an old identity with new quota.

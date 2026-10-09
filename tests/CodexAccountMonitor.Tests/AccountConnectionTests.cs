@@ -70,6 +70,15 @@ internal static class AccountConnectionTests
                 File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(state.Revision));
             }
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var identityState = Path.Combine(directory, "identity.json");
+            await Write(identityState, new(DenyAuth: true));
+            await using (var connection = new AccountConnection(new() { Kind = "ssh" }, () => Launch(identityState)))
+            {
+                var identity = await connection.ReadIdentityAsync(timeout.Token);
+                check(identity.Email == "before@example.com" && identity.Windows.Count == 0 && identity.LifetimeTokens is null && launches == 1,
+                    "desktop identity polling reads only account information and avoids quota and token requests");
+            }
+            launches = 0;
             var localHome = Path.Combine(directory, "local"); Directory.CreateDirectory(localHome);
             var localState = Path.Combine(localHome, "auth.json");
             await Write(localState, new());
@@ -83,6 +92,9 @@ internal static class AccountConnectionTests
                 var switched = await connection.ReadAsync(timeout.Token);
                 check(switched.Email == "after@example.com" && switched.Windows.Single().RemainingPercent == 35 && launches == 2,
                     "external local login change reloads account and quota in one connection");
+                var switchedIdentity = await connection.ReadIdentityAsync(timeout.Token);
+                check(switchedIdentity.Email == switched.Email && switchedIdentity.Windows.Count == 0 && launches == 2,
+                    "identity polling follows a changed desktop login using the recovered connection");
                 await Write(localState, new("after@example.com", 3, 65));
                 var renewed = await connection.ReadAsync(timeout.Token);
                 check(renewed.Email == switched.Email && launches == 3, "credential renewal for the same account reloads its auth state");
