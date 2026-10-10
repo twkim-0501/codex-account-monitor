@@ -12,12 +12,6 @@ using Forms = System.Windows.Forms;
 
 namespace CodexAccountMonitor;
 
-public sealed class ResetMonitorState
-{
-    public ResetOutlook Outlook { get; set; } = new();
-    public Dictionary<string, DateTimeOffset> Delivered { get; set; } = [];
-}
-
 public partial class MainWindow
 {
     private readonly ResetFeed resetFeed = new();

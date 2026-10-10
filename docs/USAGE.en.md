@@ -68,7 +68,7 @@ Taskbar docking targets Windows 11's centered horizontal taskbar. Other layouts 
 
 ## Update, privacy, and support
 
-Quit the monitor before replacing the executable with a newer release. Settings remain in `%LOCALAPPDATA%\CodexAccountMonitor`. Keep the same executable path if you enabled startup. To uninstall, turn off startup in settings, quit, and remove the executable. Removing the data folder also removes monitor-created profile folders; credential-store entries can remain separately.
+Quit the monitor before replacing the executable with a newer release. Settings are stored in `%USERPROFILE%\.codex-account-monitor` from v1.8.1, so Codex-launched and Windows-startup runs share one account list. Existing Windows and Codex-package settings are recovered automatically; configured connections take precedence over the initial This PC account. Original files remain intact. Keep the same executable path if you enabled startup. To uninstall, turn off startup in settings, quit, and remove the executable. Removing the data folder also removes profiles created there; credential-store entries and profiles at legacy paths can remain separately.
 
 There is no code-signing certificate. Check that the executable came from this repository's release; a SHA-256 checksum is provided. Only demo images and fictional config examples belong in public reports. Settings/cache contain private account metadata and should not be uploaded.
 

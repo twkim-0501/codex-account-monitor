@@ -14,7 +14,11 @@ SSH 연결에서는 서버의 실제 실행 파일 경로를 입력합니다. �
 
 ## 설정과 로그인 프로필
 
-Windows 파일 탐색기의 주소창에 `%LOCALAPPDATA%\CodexAccountMonitor`를 입력하면 저장 폴더가 열립니다.
+Windows 파일 탐색기의 주소창에 `%USERPROFILE%\.codex-account-monitor`를 입력하면 저장 폴더가 열립니다. v1.8.1부터 이 폴더를 사용하므로 Codex 앱에서 실행하거나 Windows 자동 시작으로 실행해도 같은 설정을 읽습니다.
+
+기존 `%LOCALAPPDATA%\CodexAccountMonitor`와 Codex 앱의 `Packages\OpenAI.Codex_*\LocalCache\Local\CodexAccountMonitor`에서 설정을 자동으로 가져옵니다. 기본 `이 PC` 하나만 있는 설정보다 직접 등록한 연결이 있는 설정을 우선합니다. 양쪽 모두 직접 등록한 연결이 있으면 최근에 수정한 설정을 선택합니다. 원본 파일은 삭제하지 않으며, 새 저장 폴더에 설정이 생긴 뒤에는 그 파일만 사용합니다.
+
+`--settings <전체 경로>`를 지정하면 캐시와 리셋 상태도 지정한 설정 파일의 폴더에 저장합니다. 이 경우 다른 저장소에서 계정을 가져오지 않습니다. 기존 계정의 `CodexHome`과 SSH 연결은 유지하며, 새로 만드는 별도 로컬 로그인 프로필은 아래 `profiles` 폴더를 사용합니다.
 
 | 파일·폴더 | 내용 |
 | --- | --- |

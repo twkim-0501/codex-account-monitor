@@ -17,6 +17,12 @@ public sealed class MonitorSettings
     public List<AccountSource> Sources { get; set; } = [];
 }
 
+public sealed class ResetMonitorState
+{
+    public ResetOutlook Outlook { get; set; } = new();
+    public Dictionary<string, DateTimeOffset> Delivered { get; set; } = [];
+}
+
 public sealed class AccountSource
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");

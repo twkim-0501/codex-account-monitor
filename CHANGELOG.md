@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.1
+
+- Fix accounts disappearing after Windows restart when the monitor was previously launched from the packaged Codex app. Use the shared `%USERPROFILE%\.codex-account-monitor` folder instead of package-virtualized AppData.
+- Recover settings from the old Windows and Codex-package stores automatically. Prefer configured connections over the default This PC account, then the most recently edited store. Preserve originals and migrate the matching usage cache and notice deduplication state. Once migrated, shared settings remain authoritative, including deliberate account deletions.
+- Pin the settings file in the Windows startup command and update the existing startup entry on launch. Explicit custom settings now isolate cache and reset state in their own directory.
+- Added migration, restart, custom-path, and atomic-write regression checks.
+
 ## 1.8.0
 
 - Put the current desktop login first in both the detail panel and taskbar widget. Identify it through account information and match registered local/SSH connections by full email without changing their saved order or authentication sources.

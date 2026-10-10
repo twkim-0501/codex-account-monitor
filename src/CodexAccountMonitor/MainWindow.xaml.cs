@@ -46,10 +46,11 @@ public partial class MainWindow : Window
         this.demo = demo;
         this.screenshotPath = screenshotPath;
         store = new(customSettings);
-        firstRun = !File.Exists(store.SettingsPath) && !demo;
-        try { settings = store.Load(); }
+        try { settings = store.Load(migrateLegacy: !demo); }
         catch (InvalidDataException error) { MessageBox.Show(error.Message, Title); settings = new(); }
+        firstRun = !File.Exists(store.SettingsPath) && !demo;
         if (firstRun && screenshotPath is null) store.Save(settings);
+        if (!demo && screenshotPath is null && !layoutCheck && settings.StartWithWindows) ApplyStartup();
         Topmost = settings.AlwaysOnTop;
         var area = SystemParameters.WorkArea;
         Height = Math.Min(Height, area.Height - 24);
@@ -264,7 +265,7 @@ public partial class MainWindow : Window
     private void ApplyStartup()
     {
         using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
-        if (settings.StartWithWindows && Environment.ProcessPath is { } path) key.SetValue("CodexAccountMonitor", "\"" + path + "\" --minimized");
+        if (settings.StartWithWindows && Environment.ProcessPath is { } path) key.SetValue("CodexAccountMonitor", MonitorDataPaths.StartupCommand(path, store.SettingsPath));
         else key.DeleteValue("CodexAccountMonitor", throwOnMissingValue: false);
     }
     private void ToggleWindow() { if (IsVisible) Hide(); else ShowDetails(); }
