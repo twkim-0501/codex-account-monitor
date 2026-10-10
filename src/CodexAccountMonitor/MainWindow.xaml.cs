@@ -124,7 +124,7 @@ public partial class MainWindow : Window
         ResetCreditDetails = [new("demo-credit-a", "codexRateLimits", "available", DateTimeOffset.UtcNow.AddDays(-28), DateTimeOffset.UtcNow.AddHours(18), "초기화권"),
             new("demo-credit-b", "codexRateLimits", "available", DateTimeOffset.UtcNow.AddDays(-12), DateTimeOffset.UtcNow.AddDays(18), "초기화권")],
         Windows = [new("codex", "Codex", hourly, 300, DateTimeOffset.UtcNow.AddHours(3)), new("codex", "Codex", weekly, 10080, DateTimeOffset.UtcNow.AddDays(5))],
-        Daily = Enumerable.Range(0, 7).Select(i => new DailyTokens(DateTime.UtcNow.Date.AddDays(i - 6).ToString("yyyy-MM-dd"), latest * (i + 2) / 8)).ToList()
+        Daily = Enumerable.Range(0, 7).Select(i => new DailyTokens(DateTime.UtcNow.Date.AddDays(i - 6).ToString("yyyy-MM-dd"), latest * new[] { 42, 8, 74, 0, 61, 33, 100 }[i] / 100)).ToList()
     };
 
     private async Task RefreshAsync()
@@ -340,6 +340,16 @@ public partial class MainWindow : Window
         checks["allExpandedPanelFitsOrScreenLimited"] = ScrollOnlyAtHeightLimit();
         panelLayouts["allExpanded"] = PanelLayoutState();
         Capture(System.IO.Path.Combine(directory, "all-expanded.png"));
+        var chartIndex = 0;
+        foreach (var card in Cards.Children.OfType<Border>())
+        {
+            chartIndex++;
+            if (VisualDescendants<Border>(card).SingleOrDefault(b => Equals(b.Tag, "daily-token-chart")) is { } chart)
+            {
+                chart.BringIntoView(); await SettlePanelLayoutAsync();
+                CapturePanelElement(chart, System.IO.Path.Combine(directory, $"daily-token-{chartIndex}.png"));
+            }
+        }
         foreach (var card in Cards.Children.OfType<Border>()) if (card.Child is Expander expander) expander.IsExpanded = false;
         HideClick(this, new RoutedEventArgs()); await Task.Delay(200);
         checks["collapsePreservesMiniWidget"] = !IsVisible && widget.Handle != 0;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+
+- Replace the unlabelled token sparkline with a seven-day bar chart, visible daily amounts, dates, and weekdays. Highlight the latest server-provided day and show exact counts on hover.
+- Use consecutive calendar dates rather than the last fourteen records. Mark missing days with a dash, distinguish reported zero, and label the last-day metric with its actual date.
+- Verify dense, sparse, and narrow-panel charts; add a safe demo preview and plain-language usage guidance.
+
 ## 1.8.1
 
 - Fix accounts disappearing after Windows restart when the monitor was previously launched from the packaged Codex app. Use the shared `%USERPROFILE%\.codex-account-monitor` folder instead of package-virtualized AppData.

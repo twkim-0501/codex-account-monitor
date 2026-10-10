@@ -74,6 +74,7 @@ CreditGrantNewsTests.Run(Check);
 WeeklyUsageBudgetTests.Run(Check);
 PrimaryAccountTests.Run(Check);
 SettingsStoreTests.Run(Check);
+DailyTokenHistoryTests.Run(Check);
 await AccountConnectionTests.RunAsync(Check);
 await ResetFeedTests.RunAsync(Check);
 var account = Json("""{"account":{"type":"chatgpt","email":"test@example.com","planType":"pro"}}""");

@@ -54,6 +54,25 @@ public partial class MainWindow
         checks["expandedWeeklyBudgetComparesQuotaWithTime"] = VisualDescendants<Border>(first).Count(b => Equals(b.Tag, "weekly-budget-bar")) == 2 &&
             VisualDescendants<TextBlock>(first).Any(t => t.Text == "주간 한도 사용") && VisualDescendants<TextBlock>(first).Any(t => t.Text == "지난 기간");
         CapturePanelElement(first, System.IO.Path.Combine(directory, "weekly-account.png"));
+        var dailyChart = VisualDescendants<Border>(first).Single(b => Equals(b.Tag, "daily-token-chart"));
+        checks["dailyTokensShowSevenDatesAndVisibleAmounts"] = VisualDescendants<TextBlock>(dailyChart).Count(t => Equals(t.Tag, "daily-token-date")) == 7 &&
+            VisualDescendants<TextBlock>(dailyChart).Count(t => Equals(t.Tag, "daily-token-value")) == 7 &&
+            VisualDescendants<Border>(dailyChart).Count(b => Equals(b.Tag, "daily-token-bar")) == 6;
+        CapturePanelElement(dailyChart, System.IO.Path.Combine(directory, "daily-token-chart.png"));
+
+        var originalDaily = snapshots[settings.Sources[0].Id].Daily;
+        var day = DailyTokenHistory.Build(originalDaily)[^1].Date;
+        snapshots[settings.Sources[0].Id].Daily = [new(day.AddDays(-30).ToString("yyyy-MM-dd"), 600_000_000),
+            new(day.AddDays(-3).ToString("yyyy-MM-dd"), 0), new(day.ToString("yyyy-MM-dd"), 16_502_782)];
+        RenderCards(); await SettlePanelLayoutAsync();
+        dailyChart = VisualDescendants<Border>((Border)Cards.Children[0]).Single(b => Equals(b.Tag, "daily-token-chart"));
+        var dailyAmounts = VisualDescendants<TextBlock>(dailyChart).Where(t => Equals(t.Tag, "daily-token-value")).Select(t => t.Text).ToArray();
+        checks["sparseDailyUiDistinguishesMissingFromZero"] = dailyAmounts.Count(v => v == "—") == 5 && dailyAmounts.Contains("0") &&
+            dailyAmounts.Contains("1650만") && !dailyAmounts.Contains("6억") && VisualDescendants<Border>(dailyChart).Count(b => Equals(b.Tag, "daily-token-bar")) == 1;
+        CapturePanelElement(dailyChart, System.IO.Path.Combine(directory, "daily-token-sparse.png"));
+        snapshots[settings.Sources[0].Id].Daily = originalDaily;
+        RenderCards(); await SettlePanelLayoutAsync();
+        first = (Expander)((Border)Cards.Children[0]).Child;
         var previewBudget = WeeklyUsageBudget.Build(snapshots[settings.Sources[0].Id], true, DateTimeOffset.UtcNow).Single();
         var preview = new StackPanel { Width = summary.ActualWidth, Background = Brush("#FFFFFF"), Margin = new Thickness(0) };
         preview.Children.Add(Text("Personal · 주간 배분", 14, Ink, FontWeights.SemiBold, new Thickness(10, 10, 10, 0)));
@@ -85,6 +104,10 @@ public partial class MainWindow
         await SettlePanelLayoutAsync();
         checks["widthChangeIncludesWrappedText"] = AccountScroll.ExtentHeight >= wideExtent && ScrollOnlyAtHeightLimit();
         checks["primaryBadgeFitsNarrowAccountHeader"] = VisualDescendants<TextBlock>((Border)Cards.Children[0]).Single(t => t.Text == "PRIMARY").ActualWidth > 20;
+        dailyChart = VisualDescendants<Border>((Border)Cards.Children[0]).Single(b => Equals(b.Tag, "daily-token-chart"));
+        checks["dailyAmountsRemainReadableInNarrowPanel"] = VisualDescendants<Viewbox>(dailyChart).Where(v => v.Child is TextBlock t && Equals(t.Tag, "daily-token-value"))
+            .All(v => v.ActualWidth > 0 && v.ActualHeight >= 10) && VisualDescendants<TextBlock>(dailyChart).Count(t => Equals(t.Tag, "daily-token-date")) == 7;
+        CapturePanelElement(dailyChart, System.IO.Path.Combine(directory, "daily-token-narrow.png"));
         layouts["narrowWithNote"] = PanelLayoutState();
 
         snapshots[source.Id].UsageNote = originalNote;

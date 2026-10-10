@@ -4,7 +4,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using CodexAccountMonitor.Core;
 
 namespace CodexAccountMonitor;
@@ -82,12 +81,13 @@ public partial class MainWindow
             AddCreditDetails(details, data);
             var tokens = new Grid { Margin = new Thickness(0, 10, 0, 4) };
             tokens.ColumnDefinitions.Add(new ColumnDefinition()); tokens.ColumnDefinitions.Add(new ColumnDefinition());
-            var latest = data.Daily?.LastOrDefault();
-            var daily = TokenMetric(latest is null ? "일별 토큰" : $"일별 토큰 · {(latest.Date.Length >= 10 ? latest.Date[5..10] : latest.Date)}", MetricFormatting.Tokens(latest?.Tokens));
+            var history = DailyTokenHistory.Build(data.Daily);
+            var latest = history.LastOrDefault();
+            var daily = TokenMetric(latest is null ? "일별 토큰" : $"{latest.DateLabel} 사용 토큰", MetricFormatting.Tokens(latest?.Tokens));
             var lifetimeTokens = TokenMetric("누적 토큰", MetricFormatting.Tokens(data.LifetimeTokens));
             Grid.SetColumn(lifetimeTokens, 1); tokens.Children.Add(daily); tokens.Children.Add(lifetimeTokens); details.Children.Add(tokens);
             if (data.UsageNote is not null) details.Children.Add(Text(data.UsageNote, 10, Soft));
-            if (data.Daily is { Count: > 1 }) details.Children.Add(Sparkline(data.Daily.TakeLast(14).ToArray()));
+            if (history.Count > 0) details.Children.Add(BuildDailyTokenChart(history));
             var updated = $"갱신 {data.UpdatedAt.ToLocalTime():MM/dd HH:mm}";
             details.Children.Add(Text(updated, 9, Soft, margin: new Thickness(0, 10, 0, 0)));
         }
@@ -133,16 +133,4 @@ public partial class MainWindow
         return stack;
     }
 
-    private FrameworkElement Sparkline(DailyTokens[] daily)
-    {
-        var canvas = new Canvas { Height = 23, Margin = new Thickness(0, 10, 0, 0), ClipToBounds = true, ToolTip = "최근 일별 토큰 추이 · 서버가 제공한 날짜 기준" };
-        var max = Math.Max(1, daily.Max(x => x.Tokens));
-        var line = new Polyline { Stroke = Brush("#9CA0C4"), StrokeThickness = 1.2, StrokeLineJoin = PenLineJoin.Round };
-        canvas.SizeChanged += (_, _) =>
-        {
-            line.Points.Clear();
-            for (var i = 0; i < daily.Length; i++) line.Points.Add(new Point(i * Math.Max(1, canvas.ActualWidth) / (daily.Length - 1), 21 - Math.Clamp(daily[i].Tokens / (double)max, 0, 1) * 18));
-        };
-        canvas.Children.Add(line); return canvas;
-    }
 }
